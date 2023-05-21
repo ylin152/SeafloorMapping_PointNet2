@@ -51,6 +51,7 @@ def main():
                     # w_elev = df_sub_file['elev'].max()
                     # if not flat
                     w_elev = df_sub_file.loc[df_sub_file['x', 'y'] == b_coor, ['elev']].to_numpy().tolist()
+
                     b_elev = refraction_correction_approx(b_elev, w_elev)
                     df_sub_file.loc[df_sub_file['label'] == 1, ['elev']] = b_elev
 

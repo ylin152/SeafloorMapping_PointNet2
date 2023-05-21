@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 os.chdir('/Users/evelyn/Desktop/PointNet2_pytorch/data17')
-dir = '2023-05-08_19-09-56/output_ckpt_500'
-export_dir = '2023-05-08_19-09-56/images_ckpt_500'
+dir = '2023-05-19_07-02-40/output_ckpt_750'
+export_dir = '2023-05-19_07-02-40/images_ckpt_750_prob'
 prob_flag = True
 
 for file in os.listdir(dir):
@@ -20,7 +20,8 @@ for file in os.listdir(dir):
     label = {0: 'non-seafloor', 1: 'seafloor'}
     sf_annotated = ip_points[:, -1].astype(int)
     sf_annotated[sf_annotated == 2] = 0
-    sf_predicted = op_points[:, 3]
+    # sf_predicted = op_points[:, 3]
+    sf_predicted = np.where(op_points[:, -1] > 0.6, 1, 0)
 
     # set common x/y label
     ax = fig.add_subplot(111, frameon=False)
@@ -47,13 +48,13 @@ for file in os.listdir(dir):
         sf_prob = op_points[:, -1]
         cdict = {0: 'olive', 1: 'saddlebrown', 2: 'chocolate', 3: 'peru'}
         label = {0: 'non-seafloor', 1: 'high prob seafloor', 2: 'medium prob seafloor', 3: 'low prob seafloor'}
-        high_prob_idx = np.where(sf_prob >= 0.8)
+        high_prob_idx = np.where(sf_prob >= 0.9)
         ax2.scatter(op_points[high_prob_idx, 1], op_points[high_prob_idx, 2], s=0.05, c=cdict[1], label=label[1])
-        medium_prob_idx = np.where((sf_prob >= 0.6) & (sf_prob < 0.8))
+        medium_prob_idx = np.where((sf_prob >= 0.7) & (sf_prob < 0.9))
         ax2.scatter(op_points[medium_prob_idx, 1], op_points[medium_prob_idx, 2], s=0.05, c=cdict[2], label=label[2])
-        low_prob_idx = np.where((sf_prob >= 0.4) & (sf_prob < 0.6))
+        low_prob_idx = np.where((sf_prob >= 0.5) & (sf_prob < 0.7))
         ax2.scatter(op_points[low_prob_idx, 1], op_points[low_prob_idx, 2], s=0.05, c=cdict[3], label=label[3])
-        non_seafloor_idx = np.where(sf_prob < 0.4)
+        non_seafloor_idx = np.where(sf_prob < 0.5)
         ax2.scatter(op_points[non_seafloor_idx, 1], op_points[non_seafloor_idx, 2], s=0.05, c=cdict[0], label=label[0])
 
 

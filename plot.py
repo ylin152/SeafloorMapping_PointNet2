@@ -2,8 +2,8 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 
-dir = 'data17/2023-05-08_19-09-56/'
-file = os.path.join(dir, 'pointnet2_part_seg_msg2_3_3.txt')
+dir = 'data17/2023-05-19_07-02-40/'
+file = os.path.join(dir, 'pointnet2_part_seg_msg2_3_2.txt')
 loss_flag = True
 f1_score_flag = True
 
@@ -19,8 +19,8 @@ if loss_flag:
                 val_loss_list.append(float(line.split(':')[3].strip()))
 
     fig = plt.figure(figsize=(10, 6))
-    plt.plot(train_loss_list[:600], label='Training loss')
-    plt.plot(val_loss_list[:600], label='Validation loss')
+    plt.plot(train_loss_list[:900], label='Training loss')
+    plt.plot(val_loss_list[:900], label='Validation loss')
     plt.ylim(0, 1)
     plt.legend()
     plt.show()
@@ -38,8 +38,8 @@ if f1_score_flag:
                 val_f1_list.append(float(line.split(':')[3].strip()))
 
     fig = plt.figure(figsize=(10, 6))
-    plt.plot(train_f1_list[:600], label='Training f1 score')
-    plt.plot(val_f1_list[:600], label='Validation f1 score')
+    plt.plot(train_f1_list[:900], label='Training f1 score')
+    plt.plot(val_f1_list[:900], label='Validation f1 score')
     plt.ylim(0, 1)
     plt.legend()
     plt.show()
