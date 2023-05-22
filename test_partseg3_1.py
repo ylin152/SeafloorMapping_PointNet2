@@ -1,17 +1,18 @@
 """
-Modified by Yiwen
-05/2023
+Author: Benny
+Date: Nov 2019
 """
 import argparse
 import os
 from pathlib import Path
+from data_utils.ShapeNetDataLoader4 import PartNormalDataset
 import torch
 import logging
 import sys
 import importlib
 from tqdm import tqdm
 import numpy as np
-from torch.utils.data import Dataset
+import numpy.ma as ma
 from torchmetrics.functional import average_precision
 # from torchmetrics.functional import confusion_matrix
 from sklearn.metrics import confusion_matrix
@@ -41,85 +42,6 @@ def pc_denormalize(pc, pc_min, pc_max):
         pc[:, i] = (pc[:, i] + 1) / 2 * (pc_max[i] - pc_min[i]) + pc_min[i]
     return pc
 
-
-def pc_normalize(pc):
-    pc_min = np.empty(3, dtype=np.float64)
-    pc_max = np.empty(3, dtype=np.float64)
-    for i in range(pc.shape[1]):
-        pc_min[i] = min(pc[:, i])
-        pc_max[i] = max(pc[:, i])
-        pc[:, i] = 2 * ((pc[:, i] - pc_min[i]) / (pc_max[i] - pc_min[i])) - 1
-    return pc, pc_min, pc_max
-
-
-class PartNormalDataset(Dataset):
-    def __init__(self, root = './data', npoints=8192, normal_channel=True):
-        self.npoints = npoints
-        self.root = root
-        self.normal_channel = normal_channel
-
-        dir_point = os.path.join(self.root, '111')
-
-        self.datapath = []
-        for fn in os.listdir(dir_point):
-            token = (os.path.splitext(os.path.basename(fn))[0])
-            self.datapath.append(os.path.join(dir_point, token + '.txt'))
-
-
-    def __getitem__(self, index):
-        fn = self.datapath[index]
-        file_name = os.path.basename(fn)
-        cls = np.array([111]).astype(np.int32)
-        data = np.loadtxt(fn).astype(np.float32)
-        if not self.normal_channel:
-            point_set = data[:, [0, 1, 4]]  # use x,y,elev
-        else:
-            point_set = data[:, [0, 1, 4, 5]]  # use x,y,elev,signal_conf
-            point_set[:, -1] = point_set[:, -1].astype(np.int32)
-
-        seg = data[:, -1].astype(np.int32)
-        # for only one class
-        seg[seg == 2] = 0
-
-        point_set_normalized = point_set
-        point_set_normalized[:, 0:3], pc_min, pc_max = pc_normalize(point_set[:, 0:3])
-
-        point_set_normalized_mask = np.full(self.npoints, True, dtype=bool)
-        # resample
-        if len(seg) > self.npoints:
-            choice = np.random.choice(len(seg), self.npoints, replace=False) #replace=True
-            point_set_normalized = point_set_normalized[choice, :]
-            seg = seg[choice]
-        elif len(seg) < self.npoints:
-            if not self.normal_channel:
-                pad_point = np.ones((self.npoints-len(seg), 3), dtype=np.float32)
-            else:
-                pad_point = np.ones((self.npoints - len(seg), 3), dtype=np.float32)
-                pad_conf = np.ones((self.npoints - len(seg), 1), dtype=np.int32)
-                pad_point = np.concatenate((pad_point, pad_conf), axis=1)
-
-            point_set_normalized = np.concatenate((point_set_normalized, pad_point), axis=0)
-
-            # create mask for point set - mask out the padded points
-            pad_point_bool = np.full(self.npoints - len(seg), False, dtype=bool)
-            # pad_point_bool = np.zeros(self.npoints - len(seg), dtype=bool)
-            point_set_normalized_bool = np.full(len(seg), True, dtype=bool)
-            # point_set_normalized_bool = np.ones(len(seg), dtype=bool)
-            point_set_normalized_mask = np.concatenate((point_set_normalized_bool, pad_point_bool))
-
-            pad_seg = np.zeros(self.npoints-len(seg), dtype=np.int32)
-            seg = np.concatenate((seg, pad_seg), axis=0)
-
-            # choice = np.random.choice(len(seg), self.npoints, re
-            # place=True)
-            # # resample
-            # point_set = point_set[choice, :]
-            # seg = seg[choice]
-
-        return point_set_normalized, cls, seg, file_name, point_set_normalized_mask, pc_min, pc_max
-
-    def __len__(self):
-        return len(self.datapath)
 
 def parse_args():
     '''PARAMETERS'''
@@ -161,9 +83,9 @@ def main(args):
     if args.output:
         # create output folder for test output files
         if args.ckpt:
-            output_dir = Path(experiment_dir + '/output_all_' + str(args.ckpt).split('.')[0])
+            output_dir = Path(experiment_dir + '/output_' + str(args.ckpt).split('.')[0])
         else:
-            output_dir = Path(experiment_dir + '/output_all')
+            output_dir = Path(experiment_dir + '/output')
 
         # exist_ok = True doesn't create folder if it already exists and doesn't raise an error
         if not os.path.exists(output_dir):
@@ -182,7 +104,7 @@ def main(args):
     # root = 'data/test5/'
     root = args.data_root
 
-    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, normal_channel=args.normal)
+    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', normal_channel=args.normal)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=3)
     log_string("The number of test data is: %d" % len(TEST_DATASET))
     num_classes = 1
@@ -265,7 +187,6 @@ def main(args):
                     cur_points = points[i, :, :]
                     cur_mask = point_set_normalized_mask[i, :]
                     cur_points = cur_points[cur_mask, :]
-                    print(cur_points.shape)
                     # create a new point cloud array
                     output_points = np.zeros((cur_points.shape[0], 5)).astype(np.float64)
                     output_points[:, 0:3] = cur_points[:, 0:3]
@@ -338,7 +259,6 @@ def main(args):
         log_string('Recall: %.5f' % test_metrics['Recall'])
         log_string('F1 score: %.5f' % test_metrics['F1 score'])
 
-        # calculate the average of each batch
         precision_avg = cur_precision / len(testDataLoader)
         recall_avg = cur_recall / len(testDataLoader)
         f1_avg = cur_f1 / len(testDataLoader)
