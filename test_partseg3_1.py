@@ -83,11 +83,10 @@ def main(args):
     if args.output:
         # create output folder for test output files
         if args.ckpt:
-            output_dir = Path(experiment_dir + '/output_' + str(args.ckpt).split('.')[0])
+            output_dir = Path(experiment_dir + '/output_' + str(args.ckpt).split('.')[0] + '_' + str(args.threshold))
         else:
-            output_dir = Path(experiment_dir + '/output')
+            output_dir = Path(experiment_dir + '/output_' + str(args.threshold))
 
-        # exist_ok = True doesn't create folder if it already exists and doesn't raise an error
         if not os.path.exists(output_dir):
             output_dir.mkdir()
 
