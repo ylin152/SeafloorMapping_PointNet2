@@ -10,20 +10,22 @@ def refraction_correction_approx(b_z, w_z):
 def parse_args():
     '''PARAMETERS'''
     parser = argparse.ArgumentParser()
+    parser.add_argument('--log_dir', type=str, help='experiment root')
     parser.add_argument('--data_dir', type=str, help='input data directory')
-    parser.add_argument('--file_list', type=str, help='a list of original files in txt format')
+    parser.add_argument('--file_list', type=str, default='file_list.txt', help='a list of original files in txt format')
     parser.add_argument('--output_dir', type=str, help='output directory')
 
     return parser.parse_args()
 
 
-def main():
-    # dir = args.data_dir
-    # output_dir = args.output_dir
-    # file_list_dir = args.file_list
-    file_dir = 'data17/111'
-    output_dir = 'data17_merge3'
-    file_list_dir = 'file_list.txt'
+def main(args):
+    log_dir = args.log_dir
+    file_dir = os.path.join(log_dir, args.data_dir)
+    output_dir = os.path.join(log_dir, args.output_dir)
+    file_list_dir = args.file_list
+    # file_dir = 'data17/2023-05-19_06-44-17/output_all_ckpt_450'
+    # output_dir = 'data17/2023-05-19_06-44-17/output_all_merge_ckpt_450'
+    # file_list_dir = 'file_list.txt'
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
@@ -33,8 +35,8 @@ def main():
 
     # file_dict = dict(file_list)
 
-    col = ['x', 'y', 'lon', 'lat', 'elev', 'label', 'prob']
-    col = ['x', 'y', 'lon', 'lat', 'elev', 'signal_conf', 'label']
+    col = ['x', 'y', 'elev', 'label', 'prob']
+    # col = ['x', 'y', 'lon', 'lat', 'elev', 'signal_conf', 'label']
 
     for file in file_list:
         for track in ['1l', '1r', '2l', '2r', '3l', '3r']:
@@ -44,25 +46,25 @@ def main():
                     sub_file = os.path.join(file_dir, sub_file)
                     df_sub_file = pd.read_csv(sub_file, sep=' ', names=col)
 
-                    # refraction correction
-                    b_elev = df_sub_file.loc[df_sub_file['label'] == 1, ['elev']].to_numpy().tolist()
-                    b_coor = df_sub_file.loc[df_sub_file['label'] == 1, ['x', 'y']].to_numpy().tolist()
-                    # if flat water surface
-                    # w_elev = df_sub_file['elev'].max()
-                    # if not flat
-                    w_elev = df_sub_file.loc[df_sub_file['x', 'y'] == b_coor, ['elev']].to_numpy().tolist()
-
-                    b_elev = refraction_correction_approx(b_elev, w_elev)
-                    df_sub_file.loc[df_sub_file['label'] == 1, ['elev']] = b_elev
+                    # # refraction correction
+                    # b_elev = df_sub_file.loc[df_sub_file['label'] == 1, ['elev']].to_numpy().tolist()
+                    # b_coor = df_sub_file.loc[df_sub_file['label'] == 1, ['x', 'y']].to_numpy().tolist()
+                    # # if flat water surface
+                    # # w_elev = df_sub_file['elev'].max()
+                    # # if not flat
+                    # w_elev = df_sub_file.loc[df_sub_file['x', 'y'] == b_coor, ['elev']].to_numpy().tolist()
+                    # # reassign elevation
+                    # b_elev = refraction_correction_approx(b_elev, w_elev)
+                    # df_sub_file.loc[df_sub_file['label'] == 1, ['elev']] = b_elev
 
                     sub_file_list.extend(df_sub_file.to_numpy().tolist())
             df = pd.DataFrame(sub_file_list, columns=col)
             output_file = os.path.join(output_dir, file + '_' + track + '.txt')  # or output to csv file
-            df.to_csv(output_file, sep=' ', index=False)
+            df.to_csv(output_file, sep=' ', index=False, header=False)
 
 
 
 
 if __name__ == '__main__':
-    # args = parse_args()
-    main()
+    args = parse_args()
+    main(args)
