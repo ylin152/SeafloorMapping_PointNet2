@@ -38,11 +38,11 @@ class PartNormalDataset(Dataset):
             self.cat = {k:v for k,v in self.cat.items() if k in class_choice}
 
         self.meta = {}
-        with open(os.path.join(self.root, 'train_test_split', 'shuffled_train_file_list.json'), 'r') as f:
+        with open(os.path.join(self.root, 'train_test_split', 'train_file_list.json'), 'r') as f:
             train_ids = set([str(d) for d in json.load(f)])
-        with open(os.path.join(self.root, 'train_test_split', 'shuffled_val_file_list.json'), 'r') as f:
+        with open(os.path.join(self.root, 'train_test_split', 'val_file_list.json'), 'r') as f:
             val_ids = set([str(d) for d in json.load(f)])
-        with open(os.path.join(self.root, 'train_test_split', 'shuffled_test_file_list.json'), 'r') as f:
+        with open(os.path.join(self.root, 'train_test_split', 'test_file_list.json'), 'r') as f:
             test_ids = set([str(d) for d in json.load(f)])
         # with open(os.path.join(self.root, 'train_test_split', 'shuffled_test_file.json'), 'r') as f:
         #     test_ids = set([str(d) for d in json.load(f)])
@@ -155,7 +155,7 @@ class PartNormalDataset(Dataset):
 
         if self.split == 'test':
             return point_set_normalized, cls, seg, \
-                   file_name, point_set_normalized_mask, pc_min, pc_max  # for output the original points with filename
+                   file_name, point_set_normalized_mask, pc_min, pc_max
 
         return point_set_normalized, cls, seg
 
