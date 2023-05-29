@@ -57,20 +57,47 @@ class PartNormalDataset(Dataset):
         self.npoints = npoints
         self.root = root
         self.normal_channel = normal_channel
+        self.cat = {}
+        self.catfile = os.path.join(self.root, 'synsetoffset2category.txt')
 
         dir_point = os.path.join(self.root, '111')
 
+        with open(self.catfile, 'r') as f:
+            for line in f:
+                ls = line.strip().split()
+                self.cat[ls[0]] = ls[1]
+        self.cat = {k: v for k, v in self.cat.items()}
+        self.classes_original = dict(zip(self.cat, range(len(self.cat))))
+
+        self.meta = {}
+        for item in self.cat:
+            self.meta[item] = []
+            dir_point = os.path.join(self.root, '111')
+            fns = sorted(os.listdir(dir_point))
+            for fn in fns:
+                if os.path.splitext(os.path.basename(fn))[1] == '.txt':
+                    # token = (os.path.splitext(os.path.basename(fn))[0])
+                    self.meta[item].append(os.path.join(dir_point, fn))
+
         self.datapath = []
-        for fn in os.listdir(dir_point):
-            token = (os.path.splitext(os.path.basename(fn))[0])
-            self.datapath.append(os.path.join(dir_point, token + '.txt'))
+        for item in self.cat:
+            for fn in self.meta[item]:
+                self.datapath.append((item, fn))
+
+        self.classes = {}
+        for i in self.cat.keys():
+            self.classes[i] = self.classes_original[i]
 
 
     def __getitem__(self, index):
         fn = self.datapath[index]
-        file_name = os.path.basename(fn)
-        cls = np.array([111]).astype(np.int32)
-        data = np.loadtxt(fn).astype(np.float32)
+        file_name = os.path.basename(fn[1])
+        print(fn[1])
+        print(file_name)
+        cat = self.datapath[index][0]
+        cls = self.classes[cat]
+        cls = np.array([cls]).astype(np.int32)
+        data = np.loadtxt(fn[1]).astype(np.float64)
         if not self.normal_channel:
             point_set = data[:, [0, 1, 4]]  # use x,y,elev
         else:
@@ -203,7 +230,7 @@ def main(args):
 
     with torch.no_grad():
 
-        tp, fp, fn = 0, 0, 0
+        tp_acc, fp_acc, fn_acc = 0, 0, 0
 
         test_metrics = {}
         f1_acc = []
@@ -219,7 +246,8 @@ def main(args):
         for batch_id, (points, label, target, file_name, point_set_normalized_mask, pc_min, pc_max) in \
                 tqdm(enumerate(testDataLoader), total=len(testDataLoader), smoothing=0.9):
 
-            # batchsize, num_point, _ = points.size()
+            print(batch_id)
+
             cur_batch_size, NUM_POINT, _ = points.size()
             points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
             points = points.transpose(2, 1)
@@ -265,7 +293,6 @@ def main(args):
                     cur_points = points[i, :, :]
                     cur_mask = point_set_normalized_mask[i, :]
                     cur_points = cur_points[cur_mask, :]
-                    print(cur_points.shape)
                     # create a new point cloud array
                     output_points = np.zeros((cur_points.shape[0], 5)).astype(np.float64)
                     output_points[:, 0:3] = cur_points[:, 0:3]
@@ -317,10 +344,17 @@ def main(args):
             cm = confusion_matrix(target_mask, cur_pred_val_mask)  # sklearn
             # cm = cm.numpy()
             # accumulate true positives, false positives and false negatives
-            # since we don't care about non-seafloor class, index start from 1
-            tp += cm[1, 1]
-            fp += cm[0, 1]
-            fn += cm[1, 0]
+            # if no seafloor in both prediction and label
+            if cm.shape[0] == 1:
+                tp, fp, fn = 0, 0, 0
+            else:
+                # since we don't care about non-seafloor class, index start from 1
+                tp, fp, fn = cm[1, 1], cm[0, 1], cm[1, 0]
+
+            # accumulate tp, fp, fn
+            tp_acc += tp
+            fp_acc += fp
+            fn_acc += fn
 
             # calculate batch-averaged precision and recall
             cur_precision += tp / (tp + fp) if (tp + fp) > 0 else 1.0
@@ -328,8 +362,8 @@ def main(args):
             cur_f1 = 2 * cur_precision * cur_recall / (cur_precision + cur_recall) if (cur_precision + cur_recall) > 0 else 0.0
 
         # calculate on the entire test dataset
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
+        precision = tp_acc / (tp_acc + fp_acc) if (tp_acc + fp_acc) > 0 else 1.0
+        recall = tp_acc / (tp_acc + fn_acc) if (tp_acc + fn_acc) > 0 else 1.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
         test_metrics['Precision'] = precision
         test_metrics['Recall'] = recall

@@ -124,7 +124,7 @@ def main(args):
 
     with torch.no_grad():
 
-        tp, fp, fn = 0, 0, 0
+        tp_acc, fp_acc, fn_acc = 0, 0, 0
 
         test_metrics = {}
         f1_acc = []
@@ -238,18 +238,26 @@ def main(args):
             # cm = cm.numpy()
             # accumulate true positives, false positives and false negatives
             # since we don't care about non-seafloor class, index start from 1
-            tp += cm[1, 1]
-            fp += cm[0, 1]
-            fn += cm[1, 0]
+            if cm.shape[0] == 1:
+                tp, fp, fn = 0, 0, 0
+            else:
+                # since we don't care about non-seafloor class, index start from 1
+                tp, fp, fn = cm[1, 1], cm[0, 1], cm[1, 0]
+
+            # accumulate tp, fp, fn
+            tp_acc += tp
+            fp_acc += fp
+            fn_acc += fn
 
             # calculate batch-averaged precision and recall
             cur_precision += tp / (tp + fp) if (tp + fp) > 0 else 1.0
             cur_recall += tp / (tp + fn) if (tp + fn) > 0 else 1.0
-            cur_f1 = 2 * cur_precision * cur_recall / (cur_precision + cur_recall) if (cur_precision + cur_recall) > 0 else 0.0
+            cur_f1 = 2 * cur_precision * cur_recall / (cur_precision + cur_recall) if (
+                                                                                                  cur_precision + cur_recall) > 0 else 0.0
 
         # calculate on the entire test dataset
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
+        precision = tp_acc / (tp_acc + fp_acc) if (tp_acc + fp_acc) > 0 else 1.0
+        recall = tp_acc / (tp_acc + fn_acc) if (tp_acc + fn_acc) > 0 else 1.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
         test_metrics['Precision'] = precision
         test_metrics['Recall'] = recall

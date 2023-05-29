@@ -437,7 +437,7 @@ def main(args):
 
     logger.info('Test model...')
     # run test
-    test_script = 'test_partseg3_1.py'
+    test_script = 'test_partseg3.py'
     if args.normal:
         test_command = 'python ' + test_script + ' --num_point ' + str(args.npoint) + ' --batch_size ' \
                        + str(args.batch_size) + ' --log_dir ' + timestr + ' --data_root ' + args.data_root + ' --normal'

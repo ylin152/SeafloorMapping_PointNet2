@@ -20,6 +20,7 @@ def parse_args():
 
 def main(args):
     log_dir = args.log_dir
+    log_dir = os.path.join('log/part_seg', log_dir)
     file_dir = os.path.join(log_dir, args.data_dir)
     output_dir = os.path.join(log_dir, args.output_dir)
     file_list_dir = args.file_list
@@ -60,7 +61,7 @@ def main(args):
                     sub_file_list.extend(df_sub_file.to_numpy().tolist())
             df = pd.DataFrame(sub_file_list, columns=col)
             output_file = os.path.join(output_dir, file + '_' + track + '.txt')  # or output to csv file
-            df.to_csv(output_file, sep=' ', index=False, header=False)
+            df.to_csv(output_file, sep=' ', index=False)
 
 
 
