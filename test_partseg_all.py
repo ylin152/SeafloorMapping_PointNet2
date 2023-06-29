@@ -189,8 +189,10 @@ def main(args):
         # create output folder for test output files
         if args.ckpt:
             output_dir = Path(experiment_dir + '/output_all_' + str(args.ckpt).split('.')[0])
+            data_dir = 'output_all_' + str(args.ckpt).split('.')[0]
         else:
             output_dir = Path(experiment_dir + '/output_all')
+            data_dir = 'output_all'
 
         # exist_ok = True doesn't create folder if it already exists and doesn't raise an error
         if not os.path.exists(output_dir):
@@ -224,7 +226,9 @@ def main(args):
         checkpoint = torch.load(os.path.join(experiment_dir, 'checkpoints', args.ckpt))
     else:
         checkpoint = torch.load(str(experiment_dir) + '/checkpoints/model.pth')
-    classifier.load_state_dict(checkpoint['model_state_dict'])
+
+    model_state_dict = {k.replace('module.', ''): v for k, v in checkpoint['model_state_dict'].items()}
+    classifier.load_state_dict(model_state_dict)
 
     thres = args.threshold
 
@@ -400,6 +404,15 @@ def main(args):
     log_string('Part avg mIOU is: %.5f' % test_metrics['part_avg_iou'])
     # log_string('Class avg mIOU is: %.5f' % test_metrics['class_avg_iou'])
     # log_string('Inctance avg mIOU is: %.5f' % test_metrics['inctance_avg_iou'])
+
+    post_process_script = 'post_process.py'
+    out_dir = data_dir + '_merge'
+    post_process_command = 'python ' + post_process_script + ' --log_dir ' + args.log_dir + ' --data_dir ' \
+                       + data_dir + ' --output_dir ' + out_dir
+
+    return_code = os.system(post_process_command)
+    if return_code != 0:
+        print("Run post process script error")
 
 
 if __name__ == '__main__':
