@@ -12,16 +12,13 @@ import importlib
 import shutil
 import provider
 import numpy as np
-from GPUtil import showUtilization as gpu_usage
 import torch.nn as nn
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from torchmetrics.functional import average_precision
 from torchmetrics.functional import confusion_matrix
-from focal_loss.focal_loss import FocalLoss
 from pathlib import Path
 from tqdm import tqdm
-from data_utils.ShapeNetDataLoader4 import PartNormalDataset
+from data_utils.ShapeNetDataLoader import PartNormalDataset
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -43,32 +40,14 @@ def inplace_relu(m):
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """
     new_y = torch.eye(num_classes)[y.cpu().data.numpy(),]
-    if (y.is_cuda):
-        return new_y.cuda()
-    return new_y
+    # if (y.is_cuda):
+    #     return new_y.cuda()
+    return new_y.to(y.device)
+    # return new_y
 
 
 def free_gpu_cache():
-    # print("Initial GPU Usage")
-    # gpu_usage()                             
-
     torch.cuda.empty_cache()
-
-    # print("GPU Usage after emptying the cache")
-    # gpu_usage()
-
-def data_parallel(module, input, device_ids, output_device=None):
-    if not device_ids:
-        return module(input)
-
-    if output_device is None:
-        output_device = device_ids[0]
-
-    replicas = nn.parallel.replicate(module, device_ids)
-    inputs = nn.parallel.scatter(input, device_ids)
-    replicas = replicas[:len(inputs)]
-    outputs = nn.parallel.parallel_apply(replicas, inputs)
-    return nn.parallel.gather(outputs, output_device)
 
 
 def parse_args():
@@ -104,8 +83,12 @@ def main(args):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-    '''HYPER PARAMETER'''
+    '''GPU SETTING'''
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+    # num_gpus = torch.cuda.device_count()
+    # print("Number of available GPUs:", num_gpus)
+    # set GPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     '''CREATE DIR'''
     timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
@@ -160,12 +143,11 @@ def main(args):
     shutil.copy('models/%s.py' % args.model, str(exp_dir))
     shutil.copy('models/pointnet2_utils.py', str(exp_dir))
 
-    classifier = MODEL.get_model(num_part, normal_channel=args.normal).cuda()
+    classifier = MODEL.get_model(num_part, normal_channel=args.normal).to(device)
     # cross-entropy loss
-    criterion = MODEL.get_loss().cuda()
+    criterion = MODEL.get_loss().to(device)
     loss_weight = args.loss_weight
-    weight = torch.Tensor([1.0, loss_weight]).cuda()
-    # criterion = MODEL.FocalLoss(weight=weight).cuda()
+    weight = torch.Tensor([1.0, loss_weight]).to(device)
     classifier.apply(inplace_relu)
 
     def weights_init(m):
@@ -180,7 +162,8 @@ def main(args):
     try:
         checkpoint = torch.load(str(pretrain_dir))
         start_epoch = checkpoint['epoch']
-        classifier.load_state_dict(checkpoint['model_state_dict'])
+        model_state_dict = {k.replace('module.', ''): v for k, v in checkpoint['model_state_dict'].items()}
+        classifier.load_state_dict(model_state_dict)
         log_string('Use pretrain model')
     except:
         log_string('No existing model, starting training from scratch...')
@@ -217,13 +200,6 @@ def main(args):
     loss_dict = {"train_loss": [], "val_loss": []}
     metric_dict = {"train_metric": [], "val_metric": []}
 
-    train_ap0_acc_list = []
-    train_ap1_acc_list = []
-    val_ap0_acc_list = []
-    val_ap1_acc_list = []
-    train_ap_acc_list = []
-    val_ap_acc_list = []
-
     for epoch in range(start_epoch, args.epoch+start_epoch):
 
         log_string('Epoch %d (%d/%s):' % (global_epoch + 1, epoch + 1, args.epoch+start_epoch))
@@ -239,9 +215,6 @@ def main(args):
         classifier = classifier.apply(lambda x: bn_momentum_adjust(x, momentum))
         classifier = classifier.train()
 
-        # seg_pred_all = []
-        # pred_choice_all = []
-        # target_all = []
         loss_acc = []
         # f1_acc = []
         tp, fp, fn = 0, 0, 0
@@ -254,15 +227,11 @@ def main(args):
             points = points.data.numpy()
             # data augmentation
             points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
-            # points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
-            # points[:, :, 0:3] = provider.jitter_point_cloud(points[:, :, 0:3])
 
             points = torch.Tensor(points)
             # points [B,N,C]; label [B,num_classes]; target [B,N]
-            points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
+            points, label, target = points.float().to(device), label.long().to(device), target.long().to(device)
             points = points.transpose(2, 1)
-
-            # seg_pred, trans_feat = data_parallel(classifier,(points, to_categorical(label, num_classes)),'0,1')
 
             seg_pred, trans_feat = classifier(points, to_categorical(label, num_classes))  # seg_pred: probabilities after softmax
 
@@ -282,14 +251,7 @@ def main(args):
             fp += cm[0, 1]
             fn += cm[1, 0]
 
-            # seg_pred_all.append(seg_pred.cpu())
-            # pred_choice_all.append(pred_choice.cpu())
-            # target_all.append(target.cpu())
-
             loss = criterion(seg_pred, target, weight=weight)
-            # print(seg_pred_reshaped.shape)
-            # print(m(seg_pred_reshaped))
-            # print(torch.nn.LogSoftmax(seg_pred_reshaped))
             # loss = criterion(seg_pred, target)
             loss_acc.append(loss.detach().item())
             loss.backward()
@@ -308,19 +270,8 @@ def main(args):
         train_f1_acc_list.append(f1)
         log_string('Train F1 score: %.5f' % f1)
 
-        # calculate average precision
-        # seg_pred_array = torch.cat(seg_pred_all, dim=0)
-        # pred_choice_array = torch.cat(pred_choice_all, dim=0)
-        # target_array = torch.cat(target_all, dim=0)
-        # # calculate Average Precision
-        # ap = average_precision(seg_pred_array, target_array, num_classes=num_part, average=None)
-        # log_string('Train AP: %.5f' % ap[1])
-
         val_loss_acc = []
         val_tp, val_fp, val_fn = 0, 0, 0
-        # val_seg_pred_all = []
-        # val_pred_choice_all = []
-        # val_target_all = []
 
         # validation
         with torch.no_grad():
@@ -329,7 +280,7 @@ def main(args):
                 points = points.data.numpy()
 
                 points = torch.Tensor(points)
-                points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
+                points, label, target = points.float().to(device), label.long().to(device), target.long().to(device)
                 points = points.transpose(2, 1)
 
                 seg_pred, trans_feat = classifier(points, to_categorical(label, num_classes))
@@ -346,10 +297,6 @@ def main(args):
                 val_tp += cm[1, 1]
                 val_fp += cm[0, 1]
                 val_fn += cm[1, 0]
-
-                # val_seg_pred_all.append(seg_pred.cpu())
-                # val_pred_choice_all.append(pred_choice.cpu())
-                # val_target_all.append(target.cpu())
 
                 loss = criterion(seg_pred, target, weight=weight)
                 # loss = criterion(seg_pred, target)
@@ -368,19 +315,11 @@ def main(args):
         val_f1_acc_list.append(val_f1)
         log_string('Val F1 score: %.5f' % val_f1)
 
-        # val_seg_pred_array = torch.cat(val_seg_pred_all, dim=0)
-        # val_pred_choice_array = torch.cat(val_pred_choice_all, dim=0)
-        # val_target_array = torch.cat(val_target_all, dim=0)
-        # val_ap = average_precision(val_seg_pred_array, val_target_array, num_classes=num_part, average=None)
-        # log_string('Val AP: %.5f' % val_ap[1])
-
         if epoch == start_epoch or (epoch + 1) % 10 == 0:
             # add scalar to tensorboard
             writer.add_scalar('Learning rate', lr, epoch + 1)
             writer.add_scalar('Loss/train', loss_acc, epoch + 1)
-            writer.add_scalar('Loss/vak', val_loss_acc, epoch + 1)
-            # writer.add_scalar('AP/train', ap[1], epoch + 1)
-            # writer.add_scalar('AP/val', val_ap[1], epoch + 1)
+            writer.add_scalar('Loss/val', val_loss_acc, epoch + 1)
             writer.add_scalar('F1 score/train', f1, epoch + 1)
             writer.add_scalar('F1 score/val', val_f1, epoch + 1)
             writer.flush()
@@ -433,11 +372,9 @@ def main(args):
     }
     torch.save(state, savepath)
 
-    # logger.info('Save loss and metric...')
-
     logger.info('Test model...')
     # run test
-    test_script = 'test_partseg3.py'
+    test_script = 'test_partseg.py'
     if args.normal:
         test_command = 'python ' + test_script + ' --num_point ' + str(args.npoint) + ' --batch_size ' \
                        + str(args.batch_size) + ' --log_dir ' + timestr + ' --data_root ' + args.data_root + ' --normal'

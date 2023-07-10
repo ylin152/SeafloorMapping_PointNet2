@@ -18,10 +18,10 @@ def pc_normalize(pc):
     return pc, pc_min, pc_max
 
 class PartNormalDataset(Dataset):
-    def __init__(self, root = './data/shapenetcore_partanno_segmentation_benchmark_v0_normal', npoints=2500, split='train', class_choice=None, normal_channel=False):
+    def __init__(self, root = './data_8192', npoints=8192, split='train', class_choice=None, normal_channel=False):
         self.npoints = npoints
         self.root = root
-        self.catfile = os.path.join(self.root, 'synsetoffset2category.txt')
+        self.catfile = os.path.join(self.root, 'category.txt')
         self.cat = {}
         self.split = split
         self.normal_channel = normal_channel
