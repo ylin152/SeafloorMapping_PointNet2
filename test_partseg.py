@@ -211,7 +211,7 @@ def main(args):
             # calculate metric - F1 score
             cm = confusion_matrix(target_mask, cur_pred_val_mask)  # sklearn
             # accumulate true positives, false positives and false negatives
-            # since we don't care about non-seafloor class, index start from 1
+            # if batch size = 1 (and negative sample), and there are no false positives, then set tp, fp, fn to 0
             if cm.shape[0] == 1:
                 tp, fp, fn = 0, 0, 0
             else:
@@ -223,7 +223,7 @@ def main(args):
             fp_acc += fp
             fn_acc += fn
 
-        # calculate on the entire test dataset
+        # calculate globally on the entire test dataset
         precision = tp_acc / (tp_acc + fp_acc) if (tp_acc + fp_acc) > 0 else 1.0
         recall = tp_acc / (tp_acc + fn_acc) if (tp_acc + fn_acc) > 0 else 1.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
