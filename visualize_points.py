@@ -1,10 +1,14 @@
+'''
+Created by Yiwen Lin
+Date: Jul 2023
+'''
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 
 os.chdir('/Users/evelyn/Desktop/PointNet2_pytorch/data17')
-dir = '2023-05-19_07-02-40/output_ckpt_750'
-export_dir = '2023-05-19_07-02-40/images_ckpt_750_prob'
+dir = '2023-05-19_07-02-40/output_ckpt_550'
+export_dir = '2023-05-19_07-02-40/images_ckpt_550_prob'
 prob_flag = True
 
 for file in os.listdir(dir):
@@ -59,7 +63,6 @@ for file in os.listdir(dir):
 
 
     handles, labels = ax1.get_legend_handles_labels()
-    # plt.legend(handles, labels, loc='lower left', bbox_to_anchor=(1.04, 0.45))
     ax.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -0.11), ncol=2)
     plt.suptitle(file)
 

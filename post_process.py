@@ -1,3 +1,7 @@
+'''
+Created by Yiwen Lin
+Date: Jul 2023
+'''
 import os, argparse
 import pandas as pd
 
@@ -24,9 +28,6 @@ def main(args):
     file_dir = os.path.join(log_dir, args.data_dir)
     output_dir = os.path.join(log_dir, args.output_dir)
     file_list_dir = args.file_list
-    # file_dir = 'data17/2023-05-19_06-44-17/output_all_ckpt_450'
-    # output_dir = 'data17/2023-05-19_06-44-17/output_all_merge_ckpt_450'
-    # file_list_dir = 'file_list.txt'
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
@@ -34,10 +35,7 @@ def main(args):
     with open(file_list_dir, 'r') as f_obj:
         file_list = [file.rstrip('\n') for file in f_obj.readlines()]
 
-    # file_dict = dict(file_list)
-
     col = ['x', 'y', 'elev', 'label', 'prob']
-    # col = ['x', 'y', 'lon', 'lat', 'elev', 'signal_conf', 'label']
 
     for file in file_list:
         for track in ['1l', '1r', '2l', '2r', '3l', '3r']:
@@ -46,18 +44,6 @@ def main(args):
                 if file in sub_file and track in sub_file:
                     sub_file = os.path.join(file_dir, sub_file)
                     df_sub_file = pd.read_csv(sub_file, sep=' ', names=col)
-
-                    # # refraction correction
-                    # b_elev = df_sub_file.loc[df_sub_file['label'] == 1, ['elev']].to_numpy().tolist()
-                    # b_coor = df_sub_file.loc[df_sub_file['label'] == 1, ['x', 'y']].to_numpy().tolist()
-                    # # if flat water surface
-                    # # w_elev = df_sub_file['elev'].max()
-                    # # if not flat
-                    # w_elev = df_sub_file.loc[df_sub_file['x', 'y'] == b_coor, ['elev']].to_numpy().tolist()
-                    # # reassign elevation
-                    # b_elev = refraction_correction_approx(b_elev, w_elev)
-                    # df_sub_file.loc[df_sub_file['label'] == 1, ['elev']] = b_elev
-
                     sub_file_list.extend(df_sub_file.to_numpy().tolist())
             df = pd.DataFrame(sub_file_list, columns=col)
             output_file = os.path.join(output_dir, file + '_' + track + '.txt')  # or output to csv file

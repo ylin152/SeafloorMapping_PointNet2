@@ -1,6 +1,9 @@
 """
 Author: Benny
 Date: Nov 2019
+
+Modified by Yiwen Lin
+Date: Jul 2023
 """
 import argparse
 import os
@@ -178,10 +181,10 @@ def main(args):
                     # recover the point coordinates
                     cur_pc_min = pc_min[i, :]
                     cur_pc_max = pc_max[i, :]
-                    cur_coor = point_set_coor[i, :]
+                    cur_coor = point_set_coor[i, :, :]
                     output_points[:, 0:3] = pc_denormalize(output_points[:, 0:3], cur_pc_min, cur_pc_max)
                     # output coordinates
-                    output_points[:, 3:5] = cur_coor[i]
+                    output_points[:, 3:5] = cur_coor
                     # output class and probability
                     output_points[:, 5] = cur_pred_val_mask[i]
                     output_points[:, 6] = cur_pred_prob_mask[i]

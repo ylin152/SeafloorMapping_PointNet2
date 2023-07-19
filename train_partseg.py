@@ -1,6 +1,9 @@
 """
 Author: Benny
 Date: Nov 2019
+
+Modified by Yiwen Lin
+Date: Jul 2023
 """
 import argparse
 import os, random
@@ -243,7 +246,7 @@ def main(args):
             # max(1)[0] returns the maximum value and max(1)[1] returns the index, which is the class number in our case
 
             # calculate confusion metric
-            cm = confusion_matrix(seg_pred.detach().cpu(), target.detach().cpu(), num_classes=num_part)
+            cm = confusion_matrix(seg_pred.detach(), target.detach(), num_classes=num_part)
             cm = cm.numpy()
             # accumulate true positives, false positives and false negatives
             # since we don't care about non-seafloor class, index start from 1
@@ -290,7 +293,7 @@ def main(args):
                 # pred_choice = seg_pred.data.max(1)[1]
 
                 # calculate confusion metric
-                cm = confusion_matrix(seg_pred.cpu(), target.cpu(), num_classes=num_part)
+                cm = confusion_matrix(seg_pred, target, num_classes=num_part)
                 cm = cm.numpy()
                 # accumulate true positives, false positives and false negatives
                 # since we don't care about non-seafloor class, index start from 1

@@ -1,3 +1,7 @@
+'''
+Modified by Yiwen Lin
+Date: Jul 2023
+'''
 import torch.nn as nn
 import torch
 import torch.nn.functional as F

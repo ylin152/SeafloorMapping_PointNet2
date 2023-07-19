@@ -1,3 +1,8 @@
+'''
+Modified by Yiwen Lin
+Date: Jul 2023
+'''
+
 # *_*coding:utf-8 *_*
 import os, math
 import json
@@ -96,19 +101,10 @@ class PartNormalDataset(Dataset):
             cls = np.array([cls]).astype(np.int32)
             data = np.loadtxt(fn[1]).astype(np.float64)
             if not self.normal_channel:
-                # if data.shape[1] == 5:
-                #     point_set = data[:, 1:4]  # use lon,lat,elev
-                # elif data.shape[1] == 7:
-                #     point_set = data[:, [0, 1, 4]]  # use x,y,elev
                 point_set = data[:, [0, 1, 4]]  # use x,y,elev
             else:
                 point_set = data[:, [0, 1, 4, 5]]  # use x,y,elev,signal_conf
                 point_set[:, -1] = point_set[:, -1].astype(np.int32)
-
-            # point_set[:, 0] = point_set[:, 0] / 10 ** div_scale
-            # point_set[:, 1] = point_set[:, 1] / 10 ** div_scale
-            # point_set[:, 0] = point_set[:, 0] / 1000
-            # point_set[:, 1] = point_set[:, 1] / 1000
 
             seg = data[:, -1].astype(np.int32)
             # for only one class
