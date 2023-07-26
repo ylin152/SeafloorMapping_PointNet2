@@ -22,7 +22,7 @@ sys.path.append(os.path.join(ROOT_DIR, 'models'))
 
 seg_classes = {'Seafloor': [0, 1]}
 
-seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+seg_label_to_cat = {}
 for cat in seg_classes.keys():
     for label in seg_classes[cat]:
         seg_label_to_cat[label] = cat
@@ -53,14 +53,12 @@ def pc_normalize(pc):
 
 
 class PartNormalDataset(Dataset):
-    def __init__(self, root = './data', npoints=8192, normal_channel=True):
+    def __init__(self, root='./data', npoints=8192, normal_channel=True):
         self.npoints = npoints
         self.root = root
         self.normal_channel = normal_channel
         self.cat = {}
         self.catfile = os.path.join(self.root, 'synsetoffset2category.txt')
-
-        dir_point = os.path.join(self.root, '111')
 
         with open(self.catfile, 'r') as f:
             for line in f:
@@ -76,7 +74,6 @@ class PartNormalDataset(Dataset):
             fns = sorted(os.listdir(dir_point))
             for fn in fns:
                 if os.path.splitext(os.path.basename(fn))[1] == '.txt':
-                    # token = (os.path.splitext(os.path.basename(fn))[0])
                     self.meta[item].append(os.path.join(dir_point, fn))
 
         self.datapath = []
@@ -87,7 +84,6 @@ class PartNormalDataset(Dataset):
         self.classes = {}
         for i in self.cat.keys():
             self.classes[i] = self.classes_original[i]
-
 
     def __getitem__(self, index):
         fn = self.datapath[index]
@@ -102,11 +98,10 @@ class PartNormalDataset(Dataset):
             point_set = data[:, [0, 1, 4]]  # use x,y,elev
         else:
             point_set = data[:, [0, 1, 4, 5]]  # use x,y,elev,signal_conf
+            point_set_coor = data[:, [2, 3]]  # store coordinates
             point_set[:, -1] = point_set[:, -1].astype(np.int32)
 
         seg = data[:, -1].astype(np.int32)
-        # for only one class
-        seg[seg == 2] = 0
 
         point_set_normalized = point_set
         point_set_normalized[:, 0:3], pc_min, pc_max = pc_normalize(point_set[:, 0:3])
@@ -114,12 +109,13 @@ class PartNormalDataset(Dataset):
         point_set_normalized_mask = np.full(self.npoints, True, dtype=bool)
         # resample
         if len(seg) > self.npoints:
-            choice = np.random.choice(len(seg), self.npoints, replace=False) #replace=True
+            choice = np.random.choice(len(seg), self.npoints, replace=False)
             point_set_normalized = point_set_normalized[choice, :]
             seg = seg[choice]
+            point_set_coor = point_set_coor[choice]
         elif len(seg) < self.npoints:
             if not self.normal_channel:
-                pad_point = np.ones((self.npoints-len(seg), 3), dtype=np.float32)
+                pad_point = np.ones((self.npoints - len(seg), 3), dtype=np.float32)
             else:
                 pad_point = np.ones((self.npoints - len(seg), 3), dtype=np.float32)
                 pad_conf = np.ones((self.npoints - len(seg), 1), dtype=np.int32)
@@ -129,24 +125,18 @@ class PartNormalDataset(Dataset):
 
             # create mask for point set - mask out the padded points
             pad_point_bool = np.full(self.npoints - len(seg), False, dtype=bool)
-            # pad_point_bool = np.zeros(self.npoints - len(seg), dtype=bool)
             point_set_normalized_bool = np.full(len(seg), True, dtype=bool)
-            # point_set_normalized_bool = np.ones(len(seg), dtype=bool)
             point_set_normalized_mask = np.concatenate((point_set_normalized_bool, pad_point_bool))
 
-            pad_seg = np.zeros(self.npoints-len(seg), dtype=np.int32)
+            pad_seg = np.zeros(self.npoints - len(seg), dtype=np.int32)
             seg = np.concatenate((seg, pad_seg), axis=0)
 
-            # choice = np.random.choice(len(seg), self.npoints, re
-            # place=True)
-            # # resample
-            # point_set = point_set[choice, :]
-            # seg = seg[choice]
-
-        return point_set_normalized, cls, seg, file_name, point_set_normalized_mask, pc_min, pc_max
+        return point_set_normalized, cls, seg, \
+               file_name, point_set_normalized_mask, pc_min, pc_max, point_set_coor
 
     def __len__(self):
         return len(self.datapath)
+
 
 def parse_args():
     '''PARAMETERS'''
@@ -194,21 +184,9 @@ def main(args):
             output_dir = Path(experiment_dir + '/output_all')
             data_dir = 'output_all'
 
-        # exist_ok = True doesn't create folder if it already exists and doesn't raise an error
         if not os.path.exists(output_dir):
             output_dir.mkdir()
 
-        # if os.path.exists(output_dir) is False:
-        #     output_dir.mkdir()
-        # else:  # if output folder already exists
-        #     counter = 1
-        #     while os.path.exists(output_dir):
-        #         dir_name = '/output' + "_" + str(counter)
-        #         output_dir = Path(experiment_dir + dir_name)
-        #         counter += 1
-        #     output_dir.mkdir()
-
-    # root = 'data/test5/'
     root = args.data_root
 
     TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, normal_channel=args.normal)
@@ -237,17 +215,12 @@ def main(args):
         tp_acc, fp_acc, fn_acc = 0, 0, 0
 
         test_metrics = {}
-        f1_acc = []
-        seg_pred_all = []
-        target_all = []
-
-        # shape_ious = {cat: [] for cat in seg_classes.keys()}
         part_ious = {part: [] for part in seg_classes['Seafloor']}
 
         cur_precision, cur_recall, cur_f1 = 0.0, 0.0, 0.0
 
         classifier = classifier.eval()
-        for batch_id, (points, label, target, file_name, point_set_normalized_mask, pc_min, pc_max) in \
+        for batch_id, (points, label, target, file_name, point_set_normalized_mask, pc_min, pc_max, point_set_coor) in \
                 tqdm(enumerate(testDataLoader), total=len(testDataLoader), smoothing=0.9):
 
             print(batch_id)
@@ -273,11 +246,8 @@ def main(args):
             target_mask = []
 
             for i in range(cur_batch_size):
-                # logits = cur_pred[i, :, :]
                 prob = np.exp(cur_pred[i, :, :])
-                # cur_pred_prob[i, :] = np.amax(prob, 1)
                 cur_pred_prob[i, :] = prob[:, 1]  # the probability of belonging to seafloor class
-                # cur_pred_val[i, :] = np.argmax(logits, 1)
                 cur_pred_val[i, :] = np.where(prob[:, 1] < thres, 0, 1)
                 cur_mask = point_set_normalized_mask[i, :]
                 cur_pred_prob_mask.append(cur_pred_prob[i, cur_mask])
@@ -291,6 +261,7 @@ def main(args):
 
                 pc_min = pc_min.numpy()
                 pc_max = pc_max.numpy()
+                point_set_coor = point_set_coor.numpy()
 
                 for i in range(cur_batch_size):
                     # mask out padded points
@@ -303,52 +274,33 @@ def main(args):
                     # recover the point coordinates
                     cur_pc_min = pc_min[i, :]
                     cur_pc_max = pc_max[i, :]
+                    cur_coor = point_set_coor[i, :, :]
                     output_points[:, 0:3] = pc_denormalize(output_points[:, 0:3], cur_pc_min, cur_pc_max)
+                    # output coordinates
+                    output_points[:, 3:5] = cur_coor
                     # output class and probability
-                    # output_points[:, 3] = cur_pred_val[i, :]
                     output_points[:, 3] = cur_pred_val_mask[i]
-                    # output_points[:, 4] = cur_pred_prob[i, :]
                     output_points[:, 4] = cur_pred_prob_mask[i]
                     output_file = file_name[i]
                     output_path = os.path.join(output_dir, output_file)
                     np.savetxt(output_path, output_points, delimiter=' ', fmt='%.4f')
 
             for i in range(cur_batch_size):
-                # segp = cur_pred_val[i, :]
                 segp = cur_pred_val_mask[i]
-                # segl = target[i, :].cpu().numpy()
-                # segl = target[i, :]
                 segl = target_mask[i]
-                for l in [0, 1]:
-                    # if (np.sum(segl == l) == 0) and (
-                    #         np.sum(segp == l) == 0):  # part is not present, no prediction either
+                for l in seg_classes['Seafloor']:
                     if np.sum(segl == l) == 0:
-                        # part_ious[l - seg_classes[cat][0]] = 1.0
-                        # part_ious2[l - seg_classes[cat][0]].append(1.0)
                         continue
                     else:
-                        # iou = np.sum((segl == l) & (segp == l)) / float(
-                        #     np.sum((segl == l) | (segp == l)))
                         iou = np.sum((segl == l) & (segp == l)) / float(
                             np.sum(segl == l))
                         part_ious[l].append(iou)
-                        # part_ious2[l - seg_classes[cat][0]].append(part_ious[l - seg_classes[cat][0]])
-                # shape_ious[cat].append(np.mean(part_ious))
-
-            # seg_pred = seg_pred.reshape(-1, num_part)
-
-            # target = torch.from_numpy(target).reshape(-1)
-            # cur_pred_val = torch.from_numpy(cur_pred_val).reshape(-1)
 
             target_mask = np.hstack(target_mask)
             cur_pred_val_mask = np.hstack(cur_pred_val_mask)
 
             # calculate metric - F1 score
-            # cm = confusion_matrix(seg_pred.cpu(), target.cpu(), num_classes=num_part)  # pytorch
             cm = confusion_matrix(target_mask, cur_pred_val_mask)  # sklearn
-            # cm = cm.numpy()
-            # accumulate true positives, false positives and false negatives
-            # if no seafloor in both prediction and label
             if cm.shape[0] == 1:
                 tp, fp, fn = 0, 0, 0
             else:
@@ -359,11 +311,6 @@ def main(args):
             tp_acc += tp
             fp_acc += fp
             fn_acc += fn
-
-            # calculate batch-averaged precision and recall
-            cur_precision += tp / (tp + fp) if (tp + fp) > 0 else 1.0
-            cur_recall += tp / (tp + fn) if (tp + fn) > 0 else 1.0
-            cur_f1 = 2 * cur_precision * cur_recall / (cur_precision + cur_recall) if (cur_precision + cur_recall) > 0 else 0.0
 
         # calculate on the entire test dataset
         precision = tp_acc / (tp_acc + fp_acc) if (tp_acc + fp_acc) > 0 else 1.0
@@ -376,20 +323,6 @@ def main(args):
         log_string('Recall: %.5f' % test_metrics['Recall'])
         log_string('F1 score: %.5f' % test_metrics['F1 score'])
 
-        # calculate the average of each batch
-        precision_avg = cur_precision / len(testDataLoader)
-        recall_avg = cur_recall / len(testDataLoader)
-        f1_avg = cur_f1 / len(testDataLoader)
-        log_string('Precision batch-averaged: %.5f' % precision_avg)
-        log_string('Recall batch-averaged: %.5f' % recall_avg)
-        log_string('F1 score batch-averaged: %.5f' % f1_avg)
-
-        # all_shape_ious = []
-        # for cat in shape_ious.keys():
-        #     for iou in shape_ious[cat]:
-        #         all_shape_ious.append(iou)
-        #     shape_ious[cat] = np.mean(shape_ious[cat])
-        # mean_shape_ious = np.mean(list(shape_ious.values()))
         mean_part_iou = []
         for part in sorted(part_ious.keys()):
             part_ious[part] = np.mean(part_ious[part])
@@ -397,18 +330,14 @@ def main(args):
             mean_part_iou.append(part_ious[part])
         mean_part_iou = np.mean(mean_part_iou)
         test_metrics['part_avg_iou'] = mean_part_iou
-        # test_metrics['class_avg_iou'] = mean_shape_ious
-        # shape_iou = np.mean(shape_iou)
-        # test_metrics['inctance_avg_iou'] = np.mean(shape_iou)
 
     log_string('Part avg mIOU is: %.5f' % test_metrics['part_avg_iou'])
-    # log_string('Class avg mIOU is: %.5f' % test_metrics['class_avg_iou'])
-    # log_string('Inctance avg mIOU is: %.5f' % test_metrics['inctance_avg_iou'])
 
+    # Combine all the sub-files together
     post_process_script = 'post_process.py'
     out_dir = data_dir + '_merge'
     post_process_command = 'python ' + post_process_script + ' --log_dir ' + args.log_dir + ' --data_dir ' \
-                       + data_dir + ' --output_dir ' + out_dir
+                           + data_dir + ' --output_dir ' + out_dir
 
     return_code = os.system(post_process_command)
     if return_code != 0:

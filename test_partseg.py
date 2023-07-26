@@ -23,7 +23,7 @@ sys.path.append(os.path.join(ROOT_DIR, 'models'))
 
 seg_classes = {'Seafloor': [0, 1]}
 
-seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+seg_label_to_cat = {}
 for cat in seg_classes.keys():
     for label in seg_classes[cat]:
         seg_label_to_cat[label] = cat
@@ -117,11 +117,7 @@ def main(args):
         tp_acc, fp_acc, fn_acc = 0, 0, 0
 
         test_metrics = {}
-        f1_acc = []
-        seg_pred_all = []
-        target_all = []
 
-        # shape_ious = {cat: [] for cat in seg_classes.keys()}
         part_ious = {part: [] for part in seg_classes['Seafloor']}
 
         classifier = classifier.eval()
@@ -195,18 +191,13 @@ def main(args):
             for i in range(cur_batch_size):
                 segp = cur_pred_val_mask[i]
                 segl = target_mask[i]
-                for l in [0, 1]:
+                for l in seg_classes['Seafloor']:
                     if np.sum(segl == l) == 0:
                         continue
                     else:
                         iou = np.sum((segl == l) & (segp == l)) / float(
                             np.sum(segl == l))
                         part_ious[l].append(iou)
-
-            # seg_pred = seg_pred.reshape(-1, num_part)
-
-            # target = torch.from_numpy(target).reshape(-1)
-            # cur_pred_val = torch.from_numpy(cur_pred_val).reshape(-1)
 
             target_mask = np.hstack(target_mask)
             cur_pred_val_mask = np.hstack(cur_pred_val_mask)

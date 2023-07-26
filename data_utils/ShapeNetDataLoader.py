@@ -49,8 +49,6 @@ class PartNormalDataset(Dataset):
             val_ids = set([str(d) for d in json.load(f)])
         with open(os.path.join(self.root, 'train_test_split', 'test_file_list.json'), 'r') as f:
             test_ids = set([str(d) for d in json.load(f)])
-        # with open(os.path.join(self.root, 'train_test_split', 'shuffled_test_file.json'), 'r') as f:
-        #     test_ids = set([str(d) for d in json.load(f)])
         for item in self.cat:
             self.meta[item] = []
             dir_point = os.path.join(self.root, self.cat[item])
@@ -80,11 +78,7 @@ class PartNormalDataset(Dataset):
         for i in self.cat.keys():
             self.classes[i] = self.classes_original[i]
 
-        # Mapping from category ('Chair') to a list of int [10,11,12,13] as segmentation labels
         self.seg_classes = {'Seafloor': [0,1]}
-
-        # for cat in sorted(self.seg_classes.keys()):
-        #     print(cat, self.seg_classes[cat])
 
         self.cache = {}  # from index to (point_set, cls, seg) tuple
         self.cache_size = 20000
@@ -104,6 +98,7 @@ class PartNormalDataset(Dataset):
                 point_set = data[:, [0, 1, 4]]  # use x,y,elev
             else:
                 point_set = data[:, [0, 1, 4, 5]]  # use x,y,elev,signal_conf
+                point_set_coor = data[:, [2, 3]] # store coordinates
                 point_set[:, -1] = point_set[:, -1].astype(np.int32)
 
             seg = data[:, -1].astype(np.int32)
@@ -119,13 +114,13 @@ class PartNormalDataset(Dataset):
         point_set_normalized_mask = np.full(self.npoints, True, dtype=bool)
         # resample
         if len(seg) > self.npoints:
-            choice = np.random.choice(len(seg), self.npoints, replace=False) #replace=True
+            choice = np.random.choice(len(seg), self.npoints, replace=False)
             point_set_normalized = point_set_normalized[choice, :]
             seg = seg[choice]
+            point_set_coor = point_set_coor[choice]
         elif len(seg) < self.npoints:
             if not self.normal_channel:
                 pad_point = np.ones((self.npoints-len(seg), 3), dtype=np.float32)
-                # pad_point = np.nan((self.npoints - len(seg), 3), dtype=np.float32)
             else:
                 pad_point = np.ones((self.npoints - len(seg), 3), dtype=np.float32)
                 pad_conf = np.ones((self.npoints - len(seg), 1), dtype=np.int32)
@@ -135,23 +130,15 @@ class PartNormalDataset(Dataset):
 
             # create mask for point set - mask out the padded points
             pad_point_bool = np.full(self.npoints - len(seg), False, dtype=bool)
-            # pad_point_bool = np.zeros(self.npoints - len(seg), dtype=bool)
             point_set_normalized_bool = np.full(len(seg), True, dtype=bool)
-            # point_set_normalized_bool = np.ones(len(seg), dtype=bool)
             point_set_normalized_mask = np.concatenate((point_set_normalized_bool, pad_point_bool))
 
             pad_seg = np.zeros(self.npoints-len(seg), dtype=np.int32)
             seg = np.concatenate((seg, pad_seg), axis=0)
 
-            # choice = np.random.choice(len(seg), self.npoints, re
-            # place=True)
-            # # resample
-            # point_set = point_set[choice, :]
-            # seg = seg[choice]
-
         if self.split == 'test':
             return point_set_normalized, cls, seg, \
-                   file_name, point_set_normalized_mask, pc_min, pc_max
+                   file_name, point_set_normalized_mask, pc_min, pc_max, point_set_coor
 
         return point_set_normalized, cls, seg
 
