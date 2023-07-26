@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument('--num_point', type=int, default=2048, help='point Number')
     parser.add_argument('--log_dir', type=str, required=True, help='experiment root')
     parser.add_argument('--ckpt', type=str, default=None, help='model checkpoint')
-    parser.add_argument('--normal', action='store_true', default=False, help='use normals')
+    parser.add_argument('--conf', action='store_true', default=False, help='use confidence level')
     parser.add_argument('--num_votes', type=int, default=3, help='aggregate segmentation scores with voting')
     parser.add_argument('--data_root', type=str, required=True, help='data root file')
     parser.add_argument('--output', action='store_false', help='output test results')
@@ -92,7 +92,7 @@ def main(args):
 
     root = args.data_root
 
-    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', normal_channel=args.normal)
+    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', conf_channel=args.conf)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=3)
     log_string("The number of test data is: %d" % len(TEST_DATASET))
     num_classes = 1
@@ -101,7 +101,7 @@ def main(args):
     '''MODEL LOADING'''
     model_name = os.listdir(experiment_dir + '/logs')[0].split('.')[0]
     MODEL = importlib.import_module(model_name)
-    classifier = MODEL.get_model(num_part, normal_channel=args.normal).to(device)
+    classifier = MODEL.get_model(num_part, conf_channel=args.conf).to(device)
     # if want to use checkpoint for testing
     if args.ckpt:
         checkpoint = torch.load(os.path.join(experiment_dir, 'checkpoints', args.ckpt))

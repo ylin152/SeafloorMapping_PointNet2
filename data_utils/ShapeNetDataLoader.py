@@ -23,13 +23,13 @@ def pc_normalize(pc):
     return pc, pc_min, pc_max
 
 class PartNormalDataset(Dataset):
-    def __init__(self, root = './data_8192', npoints=8192, split='train', class_choice=None, normal_channel=False):
+    def __init__(self, root = './data_8192', npoints=8192, split='train', class_choice=None, conf_channel=True):
         self.npoints = npoints
         self.root = root
         self.catfile = os.path.join(self.root, 'category.txt')
         self.cat = {}
         self.split = split
-        self.normal_channel = normal_channel
+        self.conf_channel = conf_channel
 
 
         with open(self.catfile, 'r') as f:
@@ -94,7 +94,7 @@ class PartNormalDataset(Dataset):
             cls = self.classes[cat]
             cls = np.array([cls]).astype(np.int32)
             data = np.loadtxt(fn[1]).astype(np.float64)
-            if not self.normal_channel:
+            if not self.conf_channel:
                 point_set = data[:, [0, 1, 4]]  # use x,y,elev
             else:
                 point_set = data[:, [0, 1, 4, 5]]  # use x,y,elev,signal_conf
@@ -119,7 +119,7 @@ class PartNormalDataset(Dataset):
             seg = seg[choice]
             point_set_coor = point_set_coor[choice]
         elif len(seg) < self.npoints:
-            if not self.normal_channel:
+            if not self.conf_channel:
                 pad_point = np.ones((self.npoints-len(seg), 3), dtype=np.float32)
             else:
                 pad_point = np.ones((self.npoints - len(seg), 3), dtype=np.float32)

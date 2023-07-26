@@ -53,10 +53,10 @@ def pc_normalize(pc):
 
 
 class PartNormalDataset(Dataset):
-    def __init__(self, root='./data', npoints=8192, normal_channel=True):
+    def __init__(self, root='./data', npoints=8192, conf_channel=True):
         self.npoints = npoints
         self.root = root
-        self.normal_channel = normal_channel
+        self.conf_channel = conf_channel
         self.cat = {}
         self.catfile = os.path.join(self.root, 'synsetoffset2category.txt')
 
@@ -94,7 +94,7 @@ class PartNormalDataset(Dataset):
         cls = self.classes[cat]
         cls = np.array([cls]).astype(np.int32)
         data = np.loadtxt(fn[1]).astype(np.float64)
-        if not self.normal_channel:
+        if not self.conf_channel:
             point_set = data[:, [0, 1, 4]]  # use x,y,elev
         else:
             point_set = data[:, [0, 1, 4, 5]]  # use x,y,elev,signal_conf
@@ -114,7 +114,7 @@ class PartNormalDataset(Dataset):
             seg = seg[choice]
             point_set_coor = point_set_coor[choice]
         elif len(seg) < self.npoints:
-            if not self.normal_channel:
+            if not self.conf_channel:
                 pad_point = np.ones((self.npoints - len(seg), 3), dtype=np.float32)
             else:
                 pad_point = np.ones((self.npoints - len(seg), 3), dtype=np.float32)
@@ -189,7 +189,7 @@ def main(args):
 
     root = args.data_root
 
-    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, normal_channel=args.normal)
+    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, conf_channel=args.normal)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=3)
     log_string("The number of test data is: %d" % len(TEST_DATASET))
     num_classes = 1
@@ -198,7 +198,7 @@ def main(args):
     '''MODEL LOADING'''
     model_name = os.listdir(experiment_dir + '/logs')[0].split('.')[0]
     MODEL = importlib.import_module(model_name)
-    classifier = MODEL.get_model(num_part, normal_channel=args.normal).cuda()
+    classifier = MODEL.get_model(num_part, conf_channel=args.normal).cuda()
     # if want to use checkpoint for testing
     if args.ckpt:
         checkpoint = torch.load(os.path.join(experiment_dir, 'checkpoints', args.ckpt))

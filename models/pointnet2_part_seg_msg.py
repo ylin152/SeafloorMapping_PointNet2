@@ -9,13 +9,13 @@ from models.pointnet2_utils import PointNetSetAbstractionMsg,PointNetSetAbstract
 
 
 class get_model(nn.Module):
-    def __init__(self, num_classes, normal_channel=False):
+    def __init__(self, num_classes, conf_channel=False):
         super(get_model, self).__init__()
-        if normal_channel:
+        if conf_channel:
             additional_channel = 1  # 1
         else:
             additional_channel = 0
-        self.normal_channel = normal_channel
+        self.conf_channel = conf_channel
         self.sa1 = PointNetSetAbstractionMsg(1024, [0.1, 0.2, 0.4], [32, 64, 128], 3+additional_channel, [[32, 32, 64], [64, 64, 128], [64, 96, 128]])
         self.sa2 = PointNetSetAbstractionMsg(128, [0.4, 0.8], [64, 128], 128+128+64, [[128, 128, 256], [128, 196, 256]])
         self.sa3 = PointNetSetAbstraction(npoint=None, radius=None, nsample=None, in_channel=512 + 3, mlp=[256, 512, 1024], group_all=True)
@@ -30,7 +30,7 @@ class get_model(nn.Module):
     def forward(self, xyz, cls_label):
         # Set Abstraction layers
         B,C,N = xyz.shape
-        if self.normal_channel:
+        if self.conf_channel:
             l0_points = xyz
             l0_xyz = xyz[:,:3,:]
         else:
