@@ -12,8 +12,6 @@ import importlib
 from tqdm import tqdm
 import numpy as np
 from torch.utils.data import Dataset
-from torchmetrics.functional import average_precision
-# from torchmetrics.functional import confusion_matrix
 from sklearn.metrics import confusion_matrix
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -88,8 +86,6 @@ class PartNormalDataset(Dataset):
     def __getitem__(self, index):
         fn = self.datapath[index]
         file_name = os.path.basename(fn[1])
-        print(fn[1])
-        print(file_name)
         cat = self.datapath[index][0]
         cls = self.classes[cat]
         cls = np.array([cls]).astype(np.int32)
@@ -217,8 +213,6 @@ def main(args):
         test_metrics = {}
         part_ious = {part: [] for part in seg_classes['Seafloor']}
 
-        cur_precision, cur_recall, cur_f1 = 0.0, 0.0, 0.0
-
         classifier = classifier.eval()
         for batch_id, (points, label, target, file_name, point_set_normalized_mask, pc_min, pc_max, point_set_coor) in \
                 tqdm(enumerate(testDataLoader), total=len(testDataLoader), smoothing=0.9):
@@ -236,7 +230,7 @@ def main(args):
 
             seg_pred = vote_pool / args.num_votes
 
-            cur_pred = seg_pred.cpu().numpy()  # seg_pred.cpu().numpy()
+            cur_pred = seg_pred.cpu().numpy()
             cur_pred_val = np.zeros((cur_batch_size, NUM_POINT)).astype(np.int32)
             cur_pred_prob = np.zeros((cur_batch_size, NUM_POINT)).astype(np.float64)
             target = target.cpu().data.numpy()

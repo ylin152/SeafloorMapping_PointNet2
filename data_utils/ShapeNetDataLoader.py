@@ -80,7 +80,7 @@ class PartNormalDataset(Dataset):
 
         self.seg_classes = {'Seafloor': [0,1]}
 
-        self.cache = {}  # from index to (point_set, cls, seg) tuple
+        self.cache = {}
         self.cache_size = 20000
 
 
@@ -102,8 +102,6 @@ class PartNormalDataset(Dataset):
                 point_set[:, -1] = point_set[:, -1].astype(np.int32)
 
             seg = data[:, -1].astype(np.int32)
-            # for only one class
-            seg[seg == 2] = 0
 
             if len(self.cache) < self.cache_size:
                 self.cache[index] = (point_set, cls, seg)
