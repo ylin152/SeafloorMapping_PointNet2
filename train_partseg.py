@@ -64,7 +64,7 @@ def parse_args():
     parser.add_argument('--ckpt', type=str, default=None, help='checkpoint path')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='weight decay')
     parser.add_argument('--npoint', type=int, default=2048, help='point Number')
-    parser.add_argument('--normal', action='store_true', default=False, help='use normals')
+    parser.add_argument('--conf', action='store_true', default=False, help='use confidence level')
     parser.add_argument('--step_size', type=int, default=20, help='decay step for lr decay')
     parser.add_argument('--lr_decay', type=float, default=0.5, help='decay rate for lr decay')
     parser.add_argument('--data_root', type=str, required=True, help='data root file')
@@ -126,12 +126,12 @@ def main(args):
 
     root = args.data_root
 
-    TRAIN_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='train', conf_channel=args.normal)
+    TRAIN_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='train', conf_channel=args.conf)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True,
                                                   num_workers=3, drop_last=True)
-    VAL_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='val', conf_channel=args.normal)
+    VAL_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='val', conf_channel=args.conf)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=3)
-    # TEST_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='test', conf_channel=args.normal)
+    # TEST_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='test', conf_channel=args.conf)
     # testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=3)
     log_string("The number of training data is: %d" % len(TRAIN_DATASET))
     log_string("The number of val data is: %d" % len(VAL_DATASET))
@@ -146,7 +146,7 @@ def main(args):
     shutil.copy('models/%s.py' % args.model, str(exp_dir))
     shutil.copy('models/pointnet2_utils.py', str(exp_dir))
 
-    classifier = MODEL.get_model(num_part, conf_channel=args.normal).to(device)
+    classifier = MODEL.get_model(num_part, conf_channel=args.conf).to(device)
     # cross-entropy loss
     criterion = MODEL.get_loss().to(device)
     loss_weight = args.loss_weight
@@ -378,9 +378,9 @@ def main(args):
     logger.info('Test model...')
     # run test
     test_script = 'test_partseg.py'
-    if args.normal:
+    if args.conf:
         test_command = 'python ' + test_script + ' --num_point ' + str(args.npoint) + ' --batch_size ' \
-                       + str(args.batch_size) + ' --log_dir ' + timestr + ' --data_root ' + args.data_root + ' --normal'
+                       + str(args.batch_size) + ' --log_dir ' + timestr + ' --data_root ' + args.data_root + ' --conf'
     else:
         test_command = 'python ' + test_script + ' --num_point ' + str(args.npoint) + ' --batch_size ' \
                    + str(args.batch_size) + ' --log_dir ' + timestr + ' --data_root ' + args.data_root
