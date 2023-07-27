@@ -21,5 +21,5 @@ ckpt=
 ## training
 python ${train_file} --model ${model} --epoch ${epoch_num} --npoint ${npoint} \
        --batch_size ${batch_size} --learning_rate ${learning_rate}\
-       --data_root ${data_root} --normal --loss_weight ${loss_weight}\
+       --data_root ${data_root} --conf --loss_weight ${loss_weight}\
        --lr_decay ${lr_decay} --ckpt ${ckpt} --step_size ${step_size}
