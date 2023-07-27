@@ -24,34 +24,42 @@ def parse_args():
 
 def main(args):
     log_dir = args.log_dir
-    log_dir = os.path.join('log/part_seg', log_dir)
     file_dir = os.path.join(log_dir, args.data_dir)
     output_dir = os.path.join(log_dir, args.output_dir)
-    file_list_dir = args.file_list
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
-    with open(file_list_dir, 'r') as f_obj:
-        file_list = [file.rstrip('\n') for file in f_obj.readlines()]
+    col = ['x', 'y', 'elev', 'lon', 'lat', 'label', 'prob']
 
-    col = ['x', 'y', 'elev', 'label', 'prob']
+    file_list = []
+    for sub_file in os.listdir(file_dir):
+        if 'seafloor' in sub_file:
+            basename = os.path.splitext(sub_file)[0]
+            basename = basename.strip('_seafloor')
+            ext = os.path.splitext(sub_file)[1]
+            os.rename(os.path.join(file_dir, sub_file), os.path.join(file_dir, basename+ext))
+            sub_file = basename+ext
+        file_list.append(os.path.splitext(sub_file)[0][:-3])
+
+    file_list = set(file_list)
 
     for file in file_list:
-        for track in ['1l', '1r', '2l', '2r', '3l', '3r']:
-            sub_file_list = []
-            for sub_file in os.listdir(file_dir):
-                if file in sub_file and track in sub_file:
-                    sub_file = os.path.join(file_dir, sub_file)
-                    df_sub_file = pd.read_csv(sub_file, sep=' ', names=col)
-                    sub_file_list.extend(df_sub_file.to_numpy().tolist())
-            df = pd.DataFrame(sub_file_list, columns=col)
-            output_file = os.path.join(output_dir, file + '_' + track + '.txt')  # or output to csv file
-            df.to_csv(output_file, sep=' ', index=False)
-
-
+        sub_file_list = []
+        for sub_file in os.listdir(file_dir):
+            if file in sub_file:
+                df_sub_file = pd.read_csv(os.path.join(file_dir, sub_file), sep=' ', names=col)
+                sub_file_list.extend(df_sub_file.to_numpy().tolist())
+        df = pd.DataFrame(sub_file_list, columns=col)
+        # convert label column to integer
+        df['label'] = df['label'].astype(int)
+        output_file = os.path.join(output_dir, file + '.txt')  # or output to csv file
+        df.to_csv(output_file, sep=' ', index=False, header=False)
 
 
 if __name__ == '__main__':
     args = parse_args()
+    args.log_dir = './log/2023-07-26_19-32-32'
+    args.data_dir = 'output_0.5'
+    args.output_dir = 'output_0.5_merge'
     main(args)
