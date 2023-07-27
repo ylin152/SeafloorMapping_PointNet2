@@ -29,9 +29,7 @@ for cat in seg_classes.keys():
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """
     new_y = torch.eye(num_classes)[y.cpu().data.numpy(),]
-    if (y.is_cuda):
-        return new_y.cuda()
-    return new_y
+    return new_y.to(y.device)
 
 
 def pc_denormalize(pc, pc_min, pc_max):
@@ -142,7 +140,7 @@ def parse_args():
     parser.add_argument('--num_point', type=int, default=2048, help='point Number')
     parser.add_argument('--log_dir', type=str, required=True, help='experiment root')
     parser.add_argument('--ckpt', type=str, default=None, help='model checkpoint')
-    parser.add_argument('--normal', action='store_true', default=False, help='use normals')
+    parser.add_argument('--conf', action='store_true', default=False, help='use confidence level')
     parser.add_argument('--num_votes', type=int, default=3, help='aggregate segmentation scores with voting')
     parser.add_argument('--data_root', type=str, required=True, help='data root file')
     parser.add_argument('--output', action='store_false', help='output test results')
@@ -158,6 +156,8 @@ def main(args):
 
     '''HYPER PARAMETER'''
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+    # set device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     experiment_dir = 'log/part_seg/' + args.log_dir
 
     '''LOG'''
@@ -185,7 +185,7 @@ def main(args):
 
     root = args.data_root
 
-    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, conf_channel=args.normal)
+    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, conf_channel=args.conf)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=3)
     log_string("The number of test data is: %d" % len(TEST_DATASET))
     num_classes = 1
@@ -194,7 +194,7 @@ def main(args):
     '''MODEL LOADING'''
     model_name = os.listdir(experiment_dir + '/logs')[0].split('.')[0]
     MODEL = importlib.import_module(model_name)
-    classifier = MODEL.get_model(num_part, conf_channel=args.normal).cuda()
+    classifier = MODEL.get_model(num_part, conf_channel=args.conf).to(device)
     # if want to use checkpoint for testing
     if args.ckpt:
         checkpoint = torch.load(os.path.join(experiment_dir, 'checkpoints', args.ckpt))
@@ -220,9 +220,9 @@ def main(args):
             print(batch_id)
 
             cur_batch_size, NUM_POINT, _ = points.size()
-            points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
+            points, label, target = points.float().to(device), label.long().to(device), target.long().to(device)
             points = points.transpose(2, 1)
-            vote_pool = torch.zeros(target.size()[0], target.size()[1], num_part).cuda()
+            vote_pool = torch.zeros(target.size()[0], target.size()[1], num_part).to(device)
 
             for _ in range(args.num_votes):
                 seg_pred, _ = classifier(points, to_categorical(label, num_classes))
@@ -263,7 +263,7 @@ def main(args):
                     cur_mask = point_set_normalized_mask[i, :]
                     cur_points = cur_points[cur_mask, :]
                     # create a new point cloud array
-                    output_points = np.zeros((cur_points.shape[0], 5)).astype(np.float64)
+                    output_points = np.zeros((cur_points.shape[0], 7)).astype(np.float64)
                     output_points[:, 0:3] = cur_points[:, 0:3]
                     # recover the point coordinates
                     cur_pc_min = pc_min[i, :]
@@ -273,8 +273,8 @@ def main(args):
                     # output coordinates
                     output_points[:, 3:5] = cur_coor
                     # output class and probability
-                    output_points[:, 3] = cur_pred_val_mask[i]
-                    output_points[:, 4] = cur_pred_prob_mask[i]
+                    output_points[:, 5] = cur_pred_val_mask[i]
+                    output_points[:, 6] = cur_pred_prob_mask[i]
                     output_file = file_name[i]
                     output_path = os.path.join(output_dir, output_file)
                     np.savetxt(output_path, output_points, delimiter=' ', fmt='%.4f')
@@ -330,8 +330,8 @@ def main(args):
     # Combine all the sub-files together
     post_process_script = 'post_process.py'
     out_dir = data_dir + '_merge'
-    post_process_command = 'python ' + post_process_script + ' --log_dir ' + args.log_dir + ' --data_dir ' \
-                           + data_dir + ' --output_dir ' + out_dir
+    post_process_command = 'python ' + post_process_script + ' --log_dir ' + experiment_dir \
+                           + ' --data_dir ' + data_dir + ' --output_dir ' + out_dir
 
     return_code = os.system(post_process_command)
     if return_code != 0:
