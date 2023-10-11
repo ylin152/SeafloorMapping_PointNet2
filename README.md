@@ -1,6 +1,8 @@
 # Seafloor_mapping_PointNet2
 A seafloor mapping model based on PointNet++ using Pytorch
 
+### Usage
+
 ### Acknowlegements
 
 @article{Pytorch_Pointnet_Pointnet2,
