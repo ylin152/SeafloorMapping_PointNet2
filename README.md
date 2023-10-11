@@ -2,9 +2,14 @@
 A seafloor mapping model based on PointNet++ using Pytorch
 
 ### Usage
-For model training and test, run:
+For model training and test, firstly run:
 ```commandline
 preprocessing_script.sh
+```
+Then, annotate the data in the 'split_data' folder.
+
+When your data is ready, run:
+```commandline
 train_script.sh
 test_script.sh
 ```

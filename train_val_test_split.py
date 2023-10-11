@@ -3,9 +3,13 @@ Created by Yiwen Lin
 Date: Jul 2023
 '''
 import os, json
-import numpy as np
+import argparse
 from sklearn.model_selection import train_test_split
 from sklearn.utils import resample
+
+# setting
+parser = argparse.ArgumentParser(description='Train-val-test data split')
+parser.add_argument('--data_dir', type=str, required=True, help='Input directory')
 
 
 def split_data(file_list):
@@ -34,8 +38,9 @@ def create_json_file(train_list, val_list, test_list, out_dir='train_test_split'
     with open(os.path.join(out_dir, 'test_file_list.json'), 'w') as f:
         f.write(test_json)
 
-def main():
-    os.chdir('/Users/evelyn/Desktop/PointNet2_pytorch/data_8192_2')
+
+def main(args):
+    os.chdir(args.data_dir)
 
     undersample_test = False
 
@@ -84,4 +89,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    args = parser.parse_args()
+    main(args)
