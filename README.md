@@ -2,19 +2,21 @@
 A seafloor mapping model based on PointNet++ using Pytorch
 
 ### Usage
-For model training and test, firstly run:
+#### Model training
+Firstly, make sure you have at least one ICESat-2 h5 file in you data directory, then run:
 ```commandline
 preprocessing_script.sh
 ```
 Then, annotate the data in the 'split_data' folder.
 
-When your data is ready, run:
+Lastly, when your data is ready, run:
 ```commandline
 train_script.sh
 test_script.sh
 ```
 
-For model prediction, run:
+#### Model prediction
+Make sure you have at least one ICESat-2 h5 file in you data directory, then run:
 ```commandline
 preprocessing_script.sh
 predict_script.sh
