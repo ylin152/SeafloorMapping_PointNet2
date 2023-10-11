@@ -49,42 +49,17 @@ def pc_normalize(pc):
 
 
 class PartNormalDataset(Dataset):
-    def __init__(self, root = './data', npoints=8192, class_choice=None, conf_channel=True):
+    def __init__(self, root='./data', npoints=8192, class_choice=None, conf_channel=True):
         self.npoints = npoints
         self.root = root
-        self.catfile = os.path.join(self.root, 'category.txt')
-        self.cat = {}
         self.conf_channel = conf_channel
 
-        with open(self.catfile, 'r') as f:
-            for line in f:
-                ls = line.strip().split()
-                self.cat[ls[0]] = ls[1]
-        self.cat = {k: v for k, v in self.cat.items()}
-        self.classes_original = dict(zip(self.cat, range(len(self.cat))))
-
-        if not class_choice is None:
-            self.cat = {k:v for k,v in self.cat.items() if k in class_choice}
-
-        self.meta = {}
-        for item in self.cat:
-            self.meta[item] = []
-            dir_point = os.path.join(self.root, self.cat[item])
-            fns = sorted(os.listdir(dir_point))
-            for fn in fns:
-                if os.path.splitext(os.path.basename(fn))[1] == '.txt':
-                    self.meta[item].append(os.path.join(dir_point, fn))
-
         self.datapath = []
-        for item in self.cat:
-            for fn in self.meta[item]:
-                self.datapath.append((item, fn))
-
-        self.classes = {}
-        for i in self.cat.keys():
-            self.classes[i] = self.classes_original[i]
-
-        self.seg_classes = {'Seafloor': [0,1]}
+        dir_point = os.path.join(self.root, 'input_data')
+        fns = sorted(os.listdir(dir_point))
+        for fn in fns:
+            if os.path.splitext(os.path.basename(fn))[1] == '.txt':
+                self.datapath.append(os.path.join(dir_point, fn))
 
         self.cache = {}
         self.cache_size = 20000
@@ -94,16 +69,12 @@ class PartNormalDataset(Dataset):
             point_set, cls, seg = self.cache[index]
         else:
             fn = self.datapath[index]
-            file_name = os.path.basename(fn[1])
-            cat = self.datapath[index][0]
-            cls = self.classes[cat]
-            cls = np.array([cls]).astype(np.int32)
-            data = np.loadtxt(fn[1]).astype(np.float64)
+            cls = np.array([0]).astype(np.int32)
+            data = np.loadtxt(fn).astype(np.float64)
             if not self.conf_channel:
-                point_set = data[:, [0, 1, 4]]  # use x,y,elev
+                point_set = data[:, [0, 1, 2]]  # use x,y,elev
             else:
-                point_set = data[:, [0, 1, 4, 5]]  # use x,y,elev,signal_conf
-                point_set_coor = data[:, [2, 3]] # store coordinates
+                point_set = data[:, [0, 1, 2, 6]]  # use x,y,elev,signal_conf
                 point_set[:, -1] = point_set[:, -1].astype(np.int32)
 
             length = len(point_set)
@@ -118,7 +89,6 @@ class PartNormalDataset(Dataset):
         if length > self.npoints:
             choice = np.random.choice(length, self.npoints, replace=False)
             point_set_normalized = point_set_normalized[choice, :]
-            point_set_coor = point_set_coor[choice]
         elif length < self.npoints:
             if not self.conf_channel:
                 pad_point = np.ones((self.npoints-length, 3), dtype=np.float32)
@@ -135,7 +105,7 @@ class PartNormalDataset(Dataset):
             point_set_normalized_mask = np.concatenate((point_set_normalized_bool, pad_point_bool))
 
         return point_set_normalized, cls, \
-                   file_name, point_set_normalized_mask, pc_min, pc_max, point_set_coor
+                   point_set_normalized_mask, pc_min, pc_max, fn
 
     def __len__(self):
         return len(self.datapath)
@@ -168,10 +138,9 @@ def main(args):
 
     '''CREATE DIR'''
     args = parse_args()
-    timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-    log_dir = Path('./log')
+    log_dir = Path('./output')
     log_dir.mkdir(exist_ok=True)
-    log_dir = log_dir.joinpath(timestr)
+    log_dir = log_dir.joinpath(args.data_root)
     log_dir.mkdir(exist_ok=True)
     logger = logging.getLogger("Model")
     logger.setLevel(logging.INFO)
@@ -202,20 +171,16 @@ def main(args):
     MODEL = importlib.import_module(model_name)
     classifier = MODEL.get_model(num_part, conf_channel=args.conf).to(device)
     trained_model = torch.load('./trained_model/model.pth', map_location=torch.device(device))
-    # if device == 'cpu':
-    #     trained_model = torch.load('./trained_model/model.pth', map_location=torch.device('cpu'))
-    # else:
-    #     trained_model = torch.load('./trained_model/model.pth')
 
     model_state_dict = {k.replace('module.', ''): v for k, v in trained_model['model_state_dict'].items()}
     classifier.load_state_dict(model_state_dict)
 
-    thres = args.threshold
+    threshold = args.threshold
 
     with torch.no_grad():
 
         classifier = classifier.eval()
-        for batch_id, (points, label, file_name, point_set_normalized_mask, pc_min, pc_max, point_set_coor) in \
+        for batch_id, (points, label, point_set_normalized_mask, pc_min, pc_max, fn) in \
                 tqdm(enumerate(testDataLoader), total=len(testDataLoader), smoothing=0.9):
 
             cur_batch_size, NUM_POINT, _ = points.size()
@@ -239,7 +204,7 @@ def main(args):
             for i in range(cur_batch_size):
                 prob = np.exp(cur_pred[i, :, :])
                 cur_pred_prob[i, :] = prob[:, 1]  # the probability of belonging to seafloor class
-                cur_pred_val[i, :] = np.where(prob[:, 1] < thres, 0, 1)
+                cur_pred_val[i, :] = np.where(prob[:, 1] < threshold, 0, 1)
                 cur_mask = point_set_normalized_mask[i, :]
                 cur_pred_prob_mask.append(cur_pred_prob[i, cur_mask])
                 cur_pred_val_mask.append(cur_pred_val[i, cur_mask])
@@ -251,7 +216,7 @@ def main(args):
 
                 pc_min = pc_min.numpy()
                 pc_max = pc_max.numpy()
-                point_set_coor = point_set_coor.numpy()
+                # point_set_coor = point_set_coor.numpy()
 
                 for i in range(cur_batch_size):
                     # mask out padded points
@@ -259,21 +224,23 @@ def main(args):
                     cur_mask = point_set_normalized_mask[i, :]
                     cur_points = cur_points[cur_mask, :]
                     # create a new point cloud array
-                    output_points = np.zeros((cur_points.shape[0], 7)).astype(np.float64)
+                    output_points = np.zeros((cur_points.shape[0], 8)).astype(np.float64)
                     output_points[:, 0:3] = cur_points[:, 0:3]
                     # recover the point coordinates
                     cur_pc_min = pc_min[i, :]
                     cur_pc_max = pc_max[i, :]
-                    cur_coor = point_set_coor[i, :, :]
+                    data = np.loadtxt(fn[i]).astype(np.float64)
+                    other_data = data[:, [3, 4, 5]]
                     output_points[:, 0:3] = pc_denormalize(output_points[:, 0:3], cur_pc_min, cur_pc_max)
-                    # output coordinates
-                    output_points[:, 3:5] = cur_coor
+                    # output coordinates and class
+                    output_points[:, 3:6] = other_data
                     # output class and probability
-                    output_points[:, 5] = cur_pred_val_mask[i]
                     output_points[:, 6] = cur_pred_prob_mask[i]
-                    output_file = file_name[i]
+                    output_points[:, 7] = cur_pred_val_mask[i]
+                    output_file = os.path.splitext(os.path.basename(fn[i]))[0] + '.csv'
                     output_path = os.path.join(output_dir, output_file)
-                    np.savetxt(output_path, output_points, delimiter=' ', fmt='%.4f')
+                    header = 'x,y,elev,lon,lat,class,prob,pred'
+                    np.savetxt(output_path, output_points, delimiter=',', header=header, fmt='%.4f')
 
     # Combine all the sub-files to the original beam files
     post_process_script = 'post_process.py'
