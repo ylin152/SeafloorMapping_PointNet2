@@ -9,10 +9,6 @@ from sklearn.utils import resample
 
 
 def split_data(file_list):
-    # file_num = len(file_list)
-    # test_num = round(file_num * 0.2)
-    # val_num = round(file_num * 0.125)
-
     train_list, tmp_list = train_test_split(file_list, test_size=0.2, random_state=42, shuffle=True)
     val_list, test_list = train_test_split(tmp_list, test_size=0.5, random_state=42, shuffle=True)
     print(len(train_list))
@@ -39,11 +35,11 @@ def create_json_file(train_list, val_list, test_list, out_dir='train_test_split'
         f.write(test_json)
 
 def main():
-    os.chdir('/Users/evelyn/Desktop/PointNet2_pytorch/data_8192')
+    os.chdir('/Users/evelyn/Desktop/PointNet2_pytorch/data_8192_2')
 
-    undersample_test = True
+    undersample_test = False
 
-    data_folder = '111'
+    data_folder = 'input_data'
     file_list_sf = []
     file_list_non = []
     for file in os.listdir(data_folder):
@@ -57,15 +53,14 @@ def main():
     train_list_non, val_list_non, test_list_non = split_data(file_list_non)
     print(len(train_list_sf))
 
-    # Combine the train and test sets for both classes
-    # train_all = train_list_sf + train_list_non
+    # Combine the val and test sets for both classes
     val_all = val_list_sf + val_list_non
     test_all = test_list_sf + test_list_non
     print(len(val_all))
     print(len(test_all))
 
     if not undersample_test:
-        ratio = 0.4  # will be determined - test 0.4
+        ratio = 0.4
         n_samples = int(ratio * len(train_list_non))
         undersampled_files = resample(train_list_non, n_samples=n_samples, replace=False, random_state=42)
         train_all = undersampled_files + train_list_sf

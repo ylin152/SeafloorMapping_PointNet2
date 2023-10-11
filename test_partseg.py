@@ -121,10 +121,9 @@ def main(args):
         part_ious = {part: [] for part in seg_classes['Seafloor']}
 
         classifier = classifier.eval()
-        for batch_id, (points, label, target, file_name, point_set_normalized_mask, pc_min, pc_max, point_set_coor) in \
+        for batch_id, (points, label, target, point_set_normalized_mask, pc_min, pc_max, fn) in \
                 tqdm(enumerate(testDataLoader), total=len(testDataLoader), smoothing=0.9):
 
-            # batchsize, num_point, _ = points.size()
             cur_batch_size, NUM_POINT, _ = points.size()
             points, label, target = points.float().to(device), label.long().to(device), target.long().to(device)
             points = points.transpose(2, 1)
@@ -136,7 +135,7 @@ def main(args):
 
             seg_pred = vote_pool / args.num_votes
 
-            cur_pred = seg_pred.cpu().numpy()  # seg_pred.cpu().numpy()
+            cur_pred = seg_pred.cpu().numpy()
             cur_pred_val = np.zeros((cur_batch_size, NUM_POINT)).astype(np.int32)
             cur_pred_prob = np.zeros((cur_batch_size, NUM_POINT)).astype(np.float64)
             target = target.cpu().data.numpy()
@@ -146,11 +145,8 @@ def main(args):
             target_mask = []
 
             for i in range(cur_batch_size):
-                # logits = cur_pred[i, :, :]
                 prob = np.exp(cur_pred[i, :, :])
-                # cur_pred_prob[i, :] = np.amax(prob, 1)
                 cur_pred_prob[i, :] = prob[:, 1]  # the probability of belonging to seafloor class
-                # cur_pred_val[i, :] = np.argmax(logits, 1)
                 cur_pred_val[i, :] = np.where(prob[:, 1] < thres, 0, 1)
                 cur_mask = point_set_normalized_mask[i, :]
                 cur_pred_prob_mask.append(cur_pred_prob[i, cur_mask])
@@ -164,7 +160,6 @@ def main(args):
 
                 pc_min = pc_min.numpy()
                 pc_max = pc_max.numpy()
-                point_set_coor = point_set_coor.numpy()
 
                 for i in range(cur_batch_size):
                     # mask out padded points
@@ -173,18 +168,22 @@ def main(args):
                     cur_points = cur_points[cur_mask, :]
                     # create a new point cloud array
                     output_points = np.zeros((cur_points.shape[0], 7)).astype(np.float64)
-                    output_points[:, 0:3] = cur_points[:, 0:3]
                     # recover the point coordinates
+                    output_points[:, 0:3] = cur_points[:, 0:3]
                     cur_pc_min = pc_min[i, :]
                     cur_pc_max = pc_max[i, :]
-                    cur_coor = point_set_coor[i, :, :]
+                    # recover other information
+                    data = np.loadtxt(fn[i]).astype(np.float64)
+                    cur_lonlat = data[:, [3, 4]]
+                    # output points
                     output_points[:, 0:3] = pc_denormalize(output_points[:, 0:3], cur_pc_min, cur_pc_max)
-                    # output coordinates
-                    output_points[:, 3:5] = cur_coor
+                    # output lon/lat
+                    output_points[:, 3:5] = cur_lonlat
                     # output class and probability
-                    output_points[:, 5] = cur_pred_val_mask[i]
-                    output_points[:, 6] = cur_pred_prob_mask[i]
-                    output_file = file_name[i]
+                    output_points[:, 5] = cur_pred_prob_mask[i]
+                    output_points[:, 6] = cur_pred_val_mask[i]
+                    # output file
+                    output_file = os.path.basename(fn[i])
                     output_path = os.path.join(output_dir, output_file)
                     np.savetxt(output_path, output_points, delimiter=' ', fmt='%.4f')
 

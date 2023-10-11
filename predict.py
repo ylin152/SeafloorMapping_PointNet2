@@ -49,7 +49,7 @@ def pc_normalize(pc):
 
 
 class PartNormalDataset(Dataset):
-    def __init__(self, root='./data', npoints=8192, class_choice=None, conf_channel=True):
+    def __init__(self, root='./data', npoints=8192, conf_channel=True):
         self.npoints = npoints
         self.root = root
         self.conf_channel = conf_channel
@@ -104,8 +104,7 @@ class PartNormalDataset(Dataset):
             point_set_normalized_bool = np.full(length, True, dtype=bool)
             point_set_normalized_mask = np.concatenate((point_set_normalized_bool, pad_point_bool))
 
-        return point_set_normalized, cls, \
-                   point_set_normalized_mask, pc_min, pc_max, fn
+        return point_set_normalized, cls, point_set_normalized_mask, pc_min, pc_max, fn
 
     def __len__(self):
         return len(self.datapath)
@@ -216,7 +215,6 @@ def main(args):
 
                 pc_min = pc_min.numpy()
                 pc_max = pc_max.numpy()
-                # point_set_coor = point_set_coor.numpy()
 
                 for i in range(cur_batch_size):
                     # mask out padded points
@@ -229,14 +227,17 @@ def main(args):
                     # recover the point coordinates
                     cur_pc_min = pc_min[i, :]
                     cur_pc_max = pc_max[i, :]
+                    # recover other info
                     data = np.loadtxt(fn[i]).astype(np.float64)
                     other_data = data[:, [3, 4, 5]]
+                    # output points
                     output_points[:, 0:3] = pc_denormalize(output_points[:, 0:3], cur_pc_min, cur_pc_max)
-                    # output coordinates and class
+                    # output other info
                     output_points[:, 3:6] = other_data
                     # output class and probability
                     output_points[:, 6] = cur_pred_prob_mask[i]
                     output_points[:, 7] = cur_pred_val_mask[i]
+                    # output file
                     output_file = os.path.splitext(os.path.basename(fn[i]))[0] + '.csv'
                     output_path = os.path.join(output_dir, output_file)
                     header = 'x,y,elev,lon,lat,class,prob,pred'

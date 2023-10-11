@@ -27,12 +27,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
 sys.path.append(os.path.join(ROOT_DIR, 'models'))
 
-seg_classes = {'Seafloor': [0, 1]}
-seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
-for cat in seg_classes.keys():
-    for label in seg_classes[cat]:
-        seg_label_to_cat[label] = cat
-
 
 def inplace_relu(m):
     classname = m.__class__.__name__
@@ -88,8 +82,6 @@ def main(args):
 
     '''GPU SETTING'''
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-    # num_gpus = torch.cuda.device_count()
-    # print("Number of available GPUs:", num_gpus)
     # set GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -131,8 +123,6 @@ def main(args):
                                                   num_workers=3, drop_last=True)
     VAL_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='val', conf_channel=args.conf)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=3)
-    # TEST_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='test', conf_channel=args.conf)
-    # testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=3)
     log_string("The number of training data is: %d" % len(TRAIN_DATASET))
     log_string("The number of val data is: %d" % len(VAL_DATASET))
 
