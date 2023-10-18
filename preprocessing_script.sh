@@ -3,8 +3,9 @@
 SOURCEDIR=./
 cd $SOURCEDIR
 
-data_root=256160621
+data_dir=256160621
+model=train
 
 ################################################
-python pre-processing/ATL03_h5_to_csv.py --data_dir ${data_root} --removeLand --removeIrrelevant --utm
-python pre-processing/split_data_bulk.py --input_dir ${data_root}
+python preprocessing/ATL03_h5_to_csv.py --data_dir ${data_dir} --removeLand --removeIrrelevant --utm
+python preprocessing/split_data_bulk.py --input_dir ${data_dir} --mode ${mode}
