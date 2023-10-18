@@ -3,6 +3,7 @@ Created by Yiwen Lin
 Date: Jul 2023
 '''
 import os, argparse
+import re
 import pandas as pd
 
 
@@ -24,42 +25,42 @@ def parse_args():
 
 def main(args):
     log_dir = args.log_dir
-    file_dir = os.path.join(log_dir, args.data_dir)
+    input_dir = os.path.join(log_dir, args.data_dir)
     output_dir = os.path.join(log_dir, args.output_dir)
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
-    col = ['x', 'y', 'elev', 'lon', 'lat', 'label', 'prob']
-
     file_list = []
-    for sub_file in os.listdir(file_dir):
-        if 'seafloor' in sub_file:
-            basename = os.path.splitext(sub_file)[0]
-            basename = basename.strip('_seafloor')
-            ext = os.path.splitext(sub_file)[1]
-            os.rename(os.path.join(file_dir, sub_file), os.path.join(file_dir, basename+ext))
-            sub_file = basename+ext
-        file_list.append(os.path.splitext(sub_file)[0][:-3])
+    pattern = r'^(.*[NS])'
+    for sub_file in os.listdir(input_dir):
+        match = re.search(pattern, sub_file)
+        if match:
+            file_list.append(match.group(0))
 
     file_list = set(file_list)
 
+    columns = pd.read_csv(os.path.join(input_dir, os.listdir(input_dir)[0])).columns
+
     for file in file_list:
         sub_file_list = []
-        for sub_file in os.listdir(file_dir):
+        for sub_file in os.listdir(input_dir):
             if file in sub_file:
-                df_sub_file = pd.read_csv(os.path.join(file_dir, sub_file), sep=' ', names=col)
+                df_sub_file = pd.read_csv(os.path.join(input_dir, sub_file), sep=',')
                 sub_file_list.extend(df_sub_file.to_numpy().tolist())
-        df = pd.DataFrame(sub_file_list, columns=col)
+        df = pd.DataFrame(sub_file_list, columns=columns)
         # convert label column to integer
-        df['label'] = df['label'].astype(int)
-        output_file = os.path.join(output_dir, file + '.txt')  # or output to csv file
-        df.to_csv(output_file, sep=' ', index=False, header=False)
+        if 'pred' in df.columns:
+            df['pred'] = df['pred'].astype(int)
+        if 'label' in df.columns:
+            df['label'] = df['label'].astype(int)
+        output_file = os.path.join(output_dir, file + '.csv')
+        df.to_csv(output_file, sep=',', index=False, header=True)
 
 
 if __name__ == '__main__':
     args = parse_args()
-    args.log_dir = './log/2023-07-26_19-32-32'
-    args.data_dir = 'output_0.5'
-    args.output_dir = 'output_0.5_merge'
+    # args.log_dir = './log/2023-07-26_19-32-32'
+    # args.data_dir = 'output_0.5'
+    # args.output_dir = 'output_0.5_merge'
     main(args)
