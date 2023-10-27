@@ -24,7 +24,9 @@ predict_script.sh
 ```
 
 #### Data
-We have provided the data in the link https://uottawa-my.sharepoint.com/personal/ylin152_uottawa_ca/_layouts/15/guestaccess.aspx?share=Ebt5C3gFwcJIlZU6z0qlPVEBdllTVC34v_8OwbugYX6xsg&e=A6X9mQ and the trained model "model.pth" in the "trained_model" folder.
+We have provided the data in the link [https://uottawa-my.sharepoint.com/personal/ylin152_uottawa_ca/_layouts/15/guestaccess.aspx?share=Ebt5C3gFwcJIlZU6z0qlPVEBdllTVC34v_8OwbugYX6xsg&e=A6X9mQ](https://www.dropbox.com/scl/fi/nhjs243nd4m0s7hymp78g/data_8192.zip?rlkey=oize826zgoetm9u3gaa7p1h3h&dl=0).
+
+And we've also provided the trained model "model.pth" in the "trained_model" folder.
 
 ### Acknowlegements
 
