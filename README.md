@@ -24,7 +24,7 @@ predict_script.sh
 ```
 
 #### Data
-We have provided the training data in "data_8192.zip".
+We have provided the training data as "data_8192.zip".
 
 And we've also provided the trained model "model.pth" in the "trained_model" folder.
 
