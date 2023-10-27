@@ -7,9 +7,9 @@ cd $SOURCEDIR
 test_file=test_partseg.py
 npoint=8192
 batch_size=1
-data_root=data
+data_root=data_8192_2
 log_dir=2023-06-21_07-58-14
-## if use checkpoints
+## if use checkpoints, in default use model.pth
 # ckpt=ckpt_550.pth
 threshold=0.5
 num_votes=10
