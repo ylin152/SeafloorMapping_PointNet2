@@ -24,7 +24,7 @@ predict_script.sh
 ```
 
 #### Data
-We have provided the data used for our model training in "data_8192.zip" and the trained model "model.pth" in the "trained_model" folder.
+We have provided the data in the link https://uottawa-my.sharepoint.com/personal/ylin152_uottawa_ca/_layouts/15/guestaccess.aspx?share=Ebt5C3gFwcJIlZU6z0qlPVEBdllTVC34v_8OwbugYX6xsg&e=A6X9mQ and the trained model "model.pth" in the "trained_model" folder.
 
 ### Acknowlegements
 
