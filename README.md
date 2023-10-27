@@ -24,7 +24,7 @@ predict_script.sh
 ```
 
 #### Data
-We have provided the data in the link https://www.dropbox.com/scl/fi/nhjs243nd4m0s7hymp78g/data_8192.zip?rlkey=oize826zgoetm9u3gaa7p1h3h&dl=0
+We have provided the training data in "data_8192.zip".
 
 And we've also provided the trained model "model.pth" in the "trained_model" folder.
 
