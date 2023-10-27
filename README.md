@@ -33,6 +33,6 @@ And we've also provided the trained model "model.pth" in the "trained_model" fol
 @article{Pytorch_Pointnet_Pointnet2,
       Author = {Xu Yan},
       Title = {Pointnet/Pointnet++ Pytorch},
-      Journal = {https://github.com/yanx27/Pointnet_Pointnet2_pytorch},
+      Journal = { https://github.com/yanx27/Pointnet_Pointnet2_pytorch },
       Year = {2019}
 }
