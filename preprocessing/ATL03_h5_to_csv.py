@@ -267,7 +267,7 @@ def convert(dataDir, utm=True, removeLand=True, removeIrrelevant=True, interval=
                 # df = (df - df.min()) / (df.max() - df.min())
 
                 # Round to three decimals for all variables
-                df = df.round(decimals=3)
+                # df = df.round(decimals=3)
 
                 # Find water surface
                 df_segment_all = pd.DataFrame(columns=df.columns)

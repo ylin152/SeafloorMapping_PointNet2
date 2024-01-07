@@ -40,14 +40,14 @@ def create_json_file(train_list, val_list, test_list, out_dir='train_test_split'
 
 
 def main(args):
-    os.chdir(args.data_dir)
+    # os.chdir(args.data_dir)
 
     undersample_test = False
 
-    data_folder = 'input_data'
+    data_dir = os.path.join(args.data_dir, 'input_data')
     file_list_sf = []
     file_list_non = []
-    for file in os.listdir(data_folder):
+    for file in os.listdir(data_dir):
         if 'seafloor' in file:
             file_list_sf.append(file)
         else:
