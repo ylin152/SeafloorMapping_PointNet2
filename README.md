@@ -28,11 +28,18 @@ We have provided the training data as "data_8192.zip".
 
 And we've also provided the trained model "model.pth" in the "trained_model" folder.
 
-### Acknowlegements
+### Published Paper 
+@article{,
+      Author = {Yiwen lin, Anders Jensen Knudby},
+      Title = {Global automated extraction of bathymetric photons from ICESat-2 data based on a PointNet++ model},
+      Journal = {International Journal of Applied Earth Observation and Geoinformation},
+      Year = {2023}
+}
 
+### Acknowlegements
 @article{Pytorch_Pointnet_Pointnet2,
       Author = {Xu Yan},
       Title = {Pointnet/Pointnet++ Pytorch},
-      Journal = { https://github.com/yanx27/Pointnet_Pointnet2_pytorch },
+      Journal = {https://github.com/yanx27/Pointnet_Pointnet2_pytorch},
       Year = {2019}
 }
